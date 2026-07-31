@@ -1974,7 +1974,6 @@
           updatedAt: data.updatedAt
         };
         downloadBlob(new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" }), `doujin-event-calendar-backup-${timestampForFile()}.json`);
-        toast("JSONバックアップを保存しました。");
       } catch (error) {
         toast("JSONバックアップを出力できませんでした。ブラウザのダウンロード設定を確認してください。", "error");
       }
@@ -2026,7 +2025,6 @@
           return [item.title,item.startDate,eventEnd(item),item.venue,item.boothNumber,...participants.slice(0,4),item.url,item.memo].map(csvCell).join(",");
         });
         downloadBlob(new Blob(["\uFEFF", [header.join(","), ...rows].join("\r\n")], { type: "text/csv;charset=utf-8" }), `doujin-event-calendar-${timestampForFile()}.csv`);
-        toast("CSVを保存しました。");
       } catch (error) {
         toast("CSVを出力できませんでした。ブラウザのダウンロード設定を確認してください。", "error");
       }
@@ -2136,7 +2134,6 @@
             return;
           }
           downloadBlob(blob, `doujin-event-calendar-${targetYear}-${pad(targetMonth + 1)}.png`);
-          toast("PNG画像を保存しました。");
         }, "image/png");
       } catch (error) {
         toast("PNG生成に失敗しました。ブラウザのメモリを確認し、通常解像度で再試行してください。", "error");
