@@ -1,0 +1,2265 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>イベントカレンダー</title>
+  <style>
+    @font-face {
+      font-family: "Noto Sans JP";
+      src: url("./assets/fonts/NotoSansJP-Variable.ttf") format("truetype");
+      font-style: normal;
+      font-weight: 100 900;
+      font-display: swap;
+    }
+
+    @font-face {
+      font-family: "Material Symbols Rounded";
+      src: url("./assets/fonts/MaterialSymbolsRounded.woff2") format("woff2");
+      font-style: normal;
+      font-weight: 100 700;
+      font-display: block;
+    }
+
+    :root {
+      --ink: #172033;
+      --muted: #657089;
+      --paper: #ffffff;
+      --canvas: #f4f6fa;
+      --line: #e1e6ef;
+      --line-strong: #cfd6e3;
+      --accent: #3867d6;
+      --accent-dark: #2953b3;
+      --accent-soft: #eef3ff;
+      --teal: #3867d6;
+      --teal-soft: #eef3ff;
+      --gold: #d39a2c;
+      --danger: #c23b4a;
+      --shadow: 0 22px 70px rgba(34, 48, 78, .16);
+      --radius: 16px;
+    }
+
+    * { box-sizing: border-box; }
+    html { min-width: 1024px; background: var(--canvas); }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--canvas);
+      font-family: "Noto Sans JP", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    button, input, select, textarea { font: inherit; }
+    button { color: inherit; }
+    .material-symbols-rounded {
+      display: inline-block;
+      width: 1em;
+      overflow: hidden;
+      font-family: "Material Symbols Rounded";
+      font-size: 20px;
+      font-style: normal;
+      font-weight: 430;
+      font-variation-settings: "FILL" 0, "wght" 430, "GRAD" 0, "opsz" 24;
+      line-height: 1;
+      letter-spacing: normal;
+      text-transform: none;
+      white-space: nowrap;
+      word-wrap: normal;
+      direction: ltr;
+      -webkit-font-feature-settings: "liga";
+      -webkit-font-smoothing: antialiased;
+    }
+    button:focus-visible, input:focus-visible, select:focus-visible,
+    textarea:focus-visible, [tabindex]:focus-visible {
+      outline: 3px solid rgba(40, 95, 90, .22);
+      outline-offset: 2px;
+    }
+
+    .app {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      min-height: 58px;
+      padding: 8px 22px;
+      color: var(--ink);
+      border-bottom: 1px solid var(--line);
+      background: rgba(255,255,255,.94);
+      box-shadow: 0 3px 14px rgba(35, 48, 74, .05);
+      backdrop-filter: blur(14px);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+      margin-right: auto;
+    }
+
+    .brand-logo {
+      flex: 0 0 auto;
+      width: 36px;
+      height: 36px;
+      border: 2px solid #fff;
+      border-radius: 50%;
+      object-fit: cover;
+      background: var(--accent-soft);
+      box-shadow: 0 0 0 1px var(--line);
+    }
+
+    .brand-copy {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      min-width: 0;
+      line-height: 1.25;
+    }
+    .brand-circle-name {
+      max-width: 180px;
+      overflow: hidden;
+      color: var(--ink);
+      font-size: 16px;
+      font-weight: 760;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .brand-circle-name:not(.hidden)::after { content: "/"; margin-left: 8px; color: #b6becc; font-weight: 400; }
+    .brand-title { color: var(--ink); font-size: 16px; font-weight: 760; letter-spacing: .015em; white-space: nowrap; }
+
+    .month-nav {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .month-title {
+      min-width: 146px;
+      text-align: center;
+      font-size: 20px;
+      font-weight: 720;
+      letter-spacing: .03em;
+    }
+
+    .calendar-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 58px;
+      padding: 9px 14px;
+      border-bottom: 1px solid var(--line);
+      background: #fff;
+    }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      min-height: 38px;
+      padding: 8px 13px;
+      border: 1px solid var(--line-strong);
+      border-radius: 10px;
+      background: #fff;
+      cursor: pointer;
+      font-weight: 650;
+      transition: transform .12s ease, box-shadow .12s ease, background .12s ease;
+    }
+
+    .btn:hover { border-color: #bbc7dc; background: #f7f9fd; box-shadow: 0 3px 10px rgba(35,49,77,.08); }
+    .btn:active { transform: translateY(1px); }
+    .btn-ghost {
+      color: #3c4860;
+      border-color: transparent;
+      background: transparent;
+    }
+    .btn-ghost:hover { border-color: var(--line); background: #f4f7fc; }
+    .btn-primary { color: #fff; border-color: var(--accent); background: var(--accent); }
+    .btn-primary:hover { background: var(--accent-dark); }
+    .btn-danger { color: #fff; border-color: var(--danger); background: var(--danger); }
+    .btn-soft { color: var(--teal); border-color: #c5dad6; background: var(--teal-soft); }
+    .btn-icon { width: 38px; padding: 8px; font-size: 18px; }
+    .btn-small { min-height: 32px; padding: 5px 9px; font-size: 12px; }
+    .btn-icon .material-symbols-rounded { font-size: 22px; }
+
+    .save-state {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      min-width: 82px;
+      color: var(--muted);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+    .save-dot { width: 8px; height: 8px; border-radius: 50%; background: #4caf79; box-shadow: 0 0 0 4px rgba(76,175,121,.12); }
+    .save-state[data-state="saving"] .save-dot { background: var(--gold); }
+    .save-state[data-state="error"] .save-dot { background: #ff9387; }
+
+    .workspace {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 224px minmax(800px, 1fr);
+      gap: 18px;
+      padding: 16px 20px 88px;
+    }
+
+    .sidebar {
+      align-self: start;
+      position: sticky;
+      top: 74px;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #fff;
+      box-shadow: 0 8px 28px rgba(35,48,74,.05);
+    }
+
+    .eyebrow {
+      margin: 0 0 5px;
+      color: #71809d;
+      font-size: 10px;
+      font-weight: 850;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+    }
+
+    .sidebar h2 { margin: 0; font-size: 17px; }
+    .filter-note { margin: 4px 0 15px; color: var(--muted); font-size: 12px; }
+    .filter-list { display: grid; gap: 5px; }
+
+    .filter-item {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      min-height: 36px;
+      padding: 7px 8px;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    .filter-item:hover { background: #f3f0e9; }
+    .filter-item input { width: 16px; height: 16px; accent-color: var(--teal); }
+    .color-dot { flex: 0 0 auto; width: 10px; height: 10px; border-radius: 50%; background: var(--dot, #999); }
+    .filter-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .filter-active {
+      margin: 14px 0 0;
+      padding: 10px 11px;
+      border: 1px solid #ecd8a6;
+      border-radius: 9px;
+      color: #72591e;
+      background: #fff8e7;
+      font-size: 12px;
+    }
+    .filter-actions { display: flex; gap: 7px; margin-top: 12px; }
+
+    .calendar-panel {
+      min-width: 0;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--paper);
+      box-shadow: 0 10px 34px rgba(35,48,74,.07);
+    }
+
+    .calendar-head {
+      display: grid;
+      grid-template-columns: repeat(7, minmax(0,1fr));
+      border-bottom: 1px solid var(--line-strong);
+      background: #f7f8fb;
+    }
+    .weekday {
+      padding: 10px 6px;
+      text-align: center;
+      color: #66716e;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .1em;
+    }
+    .weekday:first-child { color: #b54535; }
+    .weekday:last-child { color: #32629b; }
+
+    .calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, minmax(0,1fr));
+      grid-template-rows: repeat(6, minmax(154px, auto));
+    }
+
+    .day-cell {
+      position: relative;
+      min-width: 0;
+      min-height: 154px;
+      padding: 7px;
+      border-right: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      background: #fff;
+      cursor: pointer;
+    }
+    .day-cell:nth-child(7n) { border-right: 0; }
+    .day-cell:nth-last-child(-n+7) { border-bottom: 0; }
+    .day-cell:hover { background: #f9fbff; }
+    .day-cell.outside { background: #f7f8fa; }
+    .day-cell.outside .day-number { color: #afb4b1; }
+    .day-cell.today { box-shadow: inset 0 0 0 2px var(--accent); }
+
+    .day-number {
+      display: inline-grid;
+      place-items: center;
+      min-width: 27px;
+      height: 27px;
+      padding: 0 5px;
+      border: 0;
+      border-radius: 99px;
+      color: #4f5b58;
+      background: transparent;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 760;
+    }
+    .today .day-number { color: #fff; background: var(--accent); }
+    .day-cell:nth-child(7n+1) .day-number { color: #b54535; }
+    .day-cell:nth-child(7n) .day-number { color: #32629b; }
+    .today:nth-child(7n+1) .day-number,
+    .today:nth-child(7n) .day-number { color: #fff; }
+
+    .event-card {
+      width: 100%;
+      height: 104px;
+      margin-top: 4px;
+      padding: 0;
+      overflow: hidden;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      cursor: pointer;
+      text-align: left;
+    }
+    .event-card:hover .card-title { filter: brightness(.95); box-shadow: 0 2px 6px rgba(41,50,47,.14); }
+    .card-row {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      height: 18px;
+      min-width: 0;
+      overflow: hidden;
+      color: #65706d;
+      font-size: 11px;
+      line-height: 18px;
+      white-space: nowrap;
+    }
+    .card-title {
+      height: 22px;
+      padding: 0 7px;
+      border-radius: 4px;
+      color: var(--event-text, #fff);
+      background: var(--event-color, #c5523f);
+      font-size: 12px;
+      font-weight: 760;
+      line-height: 22px;
+    }
+    .card-title + .card-row { margin-top: 3px; }
+    .event-card .card-row:not(.card-title) { padding-inline: 6px; }
+    .row-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .participant-dot { flex: 0 0 auto; width: 7px; height: 7px; border-radius: 50%; background: var(--participant-color, transparent); }
+    .day-meta {
+      position: absolute;
+      right: 7px;
+      top: 8px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      max-width: calc(100% - 46px);
+    }
+    .day-booth {
+      overflow: hidden;
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 750;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .more-events {
+      flex: 0 0 auto;
+      border: 0;
+      color: var(--teal);
+      background: transparent;
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 800;
+    }
+    .empty-hint {
+      position: absolute;
+      left: 9px;
+      bottom: 8px;
+      color: transparent;
+      font-size: 10px;
+    }
+    .day-cell:hover .empty-hint { color: #a7aaa5; }
+
+    .bottom-actions {
+      position: fixed;
+      z-index: 18;
+      right: 26px;
+      bottom: 22px;
+      display: flex;
+      gap: 10px;
+      padding: 7px;
+      border: 1px solid rgba(203,199,188,.8);
+      border-radius: 14px;
+      background: rgba(255,255,255,.92);
+      box-shadow: 0 12px 34px rgba(35,48,74,.16);
+      backdrop-filter: blur(10px);
+    }
+    .bottom-actions .btn-primary { min-height: 45px; padding-inline: 18px; }
+
+    .creator-credit {
+      position: fixed;
+      z-index: 12;
+      left: 22px;
+      bottom: 18px;
+      color: #8a94a8;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: .04em;
+      white-space: nowrap;
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background: rgba(19, 29, 49, .42);
+      backdrop-filter: blur(6px);
+    }
+    .modal {
+      width: min(720px, 94vw);
+      max-height: calc(100vh - 48px);
+      overflow: auto;
+      border: 1px solid rgba(255,255,255,.8);
+      border-radius: 20px;
+      background: var(--paper);
+      box-shadow: var(--shadow);
+    }
+    .modal-wide { width: min(980px, 96vw); }
+    .modal-header {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      padding: 18px 22px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(255,255,255,.96);
+      backdrop-filter: blur(8px);
+    }
+    .modal-title-wrap h2 { margin: 0; font-family: inherit; font-size: 20px; font-weight: 760; letter-spacing: .01em; }
+    .modal-title-wrap p { margin: 2px 0 0; color: var(--muted); font-size: 12px; }
+    .modal-body { padding: 22px; }
+    .modal-footer {
+      position: sticky;
+      bottom: 0;
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 15px 22px;
+      border-top: 1px solid var(--line);
+      background: rgba(255,255,255,.97);
+    }
+    .modal-footer-group { display: flex; gap: 8px; }
+
+    .form-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; }
+    .field { display: grid; gap: 6px; }
+    .field-full { grid-column: 1 / -1; }
+    .field label, .field-label { font-size: 12px; font-weight: 800; }
+    .required::after { content: " *"; color: var(--accent); }
+    .field input, .field select, .field textarea {
+      width: 100%;
+      min-height: 42px;
+      padding: 9px 11px;
+      border: 1px solid #cfcac0;
+      border-radius: 9px;
+      color: var(--ink);
+      background: #fff;
+    }
+    .field textarea { min-height: 88px; resize: vertical; }
+    .field input[type="color"] { padding: 4px; }
+    .field-help { margin: 0; color: var(--muted); font-size: 11px; }
+    .color-field-pair {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+    .color-field-pair .field { align-content: start; }
+    .color-field-pair input[type="color"] { height: 42px; }
+    .participant-slots { display: grid; gap: 8px; }
+    .participant-slot { display: grid; grid-template-columns: 24px 1fr 32px 32px; align-items: center; gap: 6px; }
+    .slot-number { color: var(--muted); text-align: center; font-size: 12px; font-weight: 800; }
+    .reorder-button { width: 32px; padding: 4px; }
+    .reorder-button .material-symbols-rounded { font-size: 22px; }
+
+    .inline-error {
+      display: none;
+      margin: 0 0 16px;
+      padding: 11px 13px;
+      border: 1px solid #efc4bd;
+      border-radius: 9px;
+      color: #862e25;
+      background: #fff0ed;
+    }
+    .inline-error.visible { display: block; }
+
+    .participant-list { display: grid; gap: 8px; }
+    .participant-row {
+      display: grid;
+      grid-template-columns: 24px minmax(160px,1fr) minmax(130px,.8fr) auto;
+      align-items: center;
+      gap: 10px;
+      padding: 11px 12px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #fff;
+    }
+    .participant-row.inactive { opacity: .56; background: #f1efea; }
+    .participant-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 800; }
+    .participant-circle { overflow: hidden; color: var(--muted); text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+    .row-actions { display: flex; gap: 5px; }
+    .empty-state {
+      padding: 42px 20px;
+      border: 1px dashed var(--line-strong);
+      border-radius: 12px;
+      color: var(--muted);
+      text-align: center;
+      background: #faf8f3;
+    }
+    .empty-state strong { display: block; margin-bottom: 4px; color: var(--ink); font-size: 16px; }
+
+    .day-event-list { display: grid; gap: 10px; }
+    .day-event-item {
+      display: grid;
+      grid-template-columns: 6px 1fr auto;
+      gap: 12px;
+      align-items: center;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #fff;
+    }
+    .event-stripe { align-self: stretch; border-radius: 99px; background: var(--event-color); }
+    .event-summary strong { display: block; }
+    .event-meta { color: var(--muted); font-size: 12px; }
+
+    .export-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
+    .export-card {
+      display: grid;
+      grid-template-columns: 42px 1fr;
+      gap: 12px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+    }
+    .export-card > div:last-child { display: flex; min-width: 0; flex-direction: column; align-items: flex-start; }
+    .export-icon {
+      display: grid;
+      place-items: center;
+      width: 42px;
+      height: 42px;
+      border-radius: 11px;
+      color: #fff;
+      background: var(--teal);
+      font-size: 12px;
+      font-weight: 900;
+    }
+    .export-card h3 { margin: 0 0 3px; font-size: 15px; }
+    .export-card p { min-height: 36px; margin: 0 0 10px; color: var(--muted); font-size: 12px; }
+    .export-action { min-height: 40px; margin-top: auto; }
+    .option-row { display: flex; align-items: center; gap: 14px; margin: 8px 0; color: var(--muted); font-size: 12px; }
+    .option-row label { display: flex; align-items: center; gap: 5px; }
+
+    .data-table { width: 100%; border-collapse: collapse; }
+    .data-table th, .data-table td { padding: 10px 9px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+    .data-table th { color: var(--muted); background: #f1eee7; font-size: 11px; letter-spacing: .06em; }
+    .data-table tr:hover td { background: #fffcf4; }
+    .table-title { max-width: 230px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 800; }
+
+    .settings-section + .settings-section { margin-top: 24px; padding-top: 22px; border-top: 1px solid var(--line); }
+    .settings-section h3 { margin: 0 0 5px; }
+    .settings-section > p { margin: 0 0 12px; color: var(--muted); }
+    .danger-zone { padding: 14px; border: 1px solid #e8c1bb; border-radius: 11px; background: #fff5f3; }
+
+    .management-profile {
+      display: grid;
+      grid-template-columns: 112px 1fr;
+      gap: 20px;
+      margin-bottom: 24px;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      background: #f7f9fd;
+    }
+    .logo-editor { display: grid; justify-items: center; gap: 9px; }
+    .logo-preview {
+      display: grid;
+      place-items: center;
+      width: 92px;
+      height: 92px;
+      overflow: hidden;
+      border: 1px dashed #bdb8ae;
+      border-radius: 50%;
+      color: var(--muted);
+      background: #fff;
+    }
+    .logo-preview img { width: 100%; height: 100%; object-fit: cover; }
+    .logo-preview .material-symbols-rounded { font-size: 34px; }
+    .management-fields { display: grid; align-content: start; gap: 13px; }
+    .management-fields .field { max-width: 520px; }
+    .checkbox-row { display: flex; align-items: center; gap: 8px; font-weight: 650; }
+    .checkbox-row input { width: 17px; height: 17px; accent-color: var(--teal); }
+    .section-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 12px; }
+    .section-heading h3 { margin: 0; font-size: 16px; }
+
+    .crop-workspace { display: grid; justify-items: center; gap: 18px; }
+    .crop-canvas-wrap {
+      position: relative;
+      width: 320px;
+      height: 320px;
+      overflow: hidden;
+      border-radius: 50%;
+      background: #e8e5df;
+      box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--teal);
+      touch-action: none;
+      cursor: grab;
+    }
+    .crop-canvas-wrap:active { cursor: grabbing; }
+    .crop-canvas { display: block; width: 320px; height: 320px; }
+    .crop-guide {
+      position: absolute;
+      inset: 0;
+      border: 1px solid rgba(255,255,255,.75);
+      border-radius: 50%;
+      pointer-events: none;
+    }
+    .crop-controls { width: min(420px, 100%); }
+    .crop-controls input[type="range"] { width: 100%; accent-color: var(--teal); }
+
+    .toast-stack {
+      position: fixed;
+      z-index: 90;
+      right: 22px;
+      top: 92px;
+      display: grid;
+      gap: 8px;
+      pointer-events: none;
+    }
+    .toast {
+      width: min(380px, calc(100vw - 44px));
+      padding: 12px 14px;
+      border-left: 4px solid var(--teal);
+      border-radius: 9px;
+      color: #fff;
+      background: #293b38;
+      box-shadow: 0 10px 30px rgba(20,30,28,.22);
+      animation: toast-in .18s ease-out;
+    }
+    .toast.error { border-left-color: #ff8b7e; }
+    @keyframes toast-in { from { opacity: 0; transform: translateY(-6px); } }
+    .hidden { display: none !important; }
+
+    @media (max-width: 1180px) {
+      .brand { min-width: auto; }
+      .brand-circle-name { max-width: 95px; }
+      .toolbar .btn span:not(.material-symbols-rounded) { display: none; }
+      .workspace { grid-template-columns: 190px minmax(800px,1fr); padding-inline: 14px; }
+    }
+
+    @media print {
+      @page { size: A4 landscape; margin: 8mm; }
+      html { min-width: 0; background: #fff; }
+      body { background: #fff; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+      .topbar, .calendar-toolbar, .sidebar, .bottom-actions, .creator-credit, .toast-stack, .modal-backdrop { display: none !important; }
+      .workspace { display: block; padding: 0; }
+      .calendar-panel { border: 1px solid #aaa; border-radius: 0; box-shadow: none; }
+      .calendar-grid { grid-template-rows: repeat(6, 31mm); }
+      .day-cell { min-height: 31mm; padding: 1.5mm; }
+      .event-card { height: 22mm; margin-top: 1mm; padding: 0; box-shadow: none; }
+      .card-row { height: 3.7mm; font-size: 7pt; line-height: 3.7mm; }
+      .card-title { font-size: 7.5pt; }
+      .more-events { top: 1.5mm; right: 1.5mm; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <img class="brand-logo hidden" id="brand-logo" alt="">
+        <div class="brand-copy">
+          <span class="brand-circle-name hidden" id="brand-circle-name"></span>
+          <strong class="brand-title">イベントカレンダー</strong>
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <div class="save-state" id="save-state" data-state="saved" aria-live="polite">
+          <span class="save-dot" aria-hidden="true"></span><span id="save-label">保存済み</span>
+        </div>
+        <button class="btn btn-ghost" id="participants-btn" type="button" aria-label="管理"><span class="material-symbols-rounded" aria-hidden="true">group</span><span>管理</span></button>
+        <button class="btn btn-ghost" id="export-btn" type="button" aria-label="出力"><span class="material-symbols-rounded" aria-hidden="true">download</span><span>出力</span></button>
+        <button class="btn btn-ghost" id="settings-btn" type="button" aria-label="設定"><span class="material-symbols-rounded" aria-hidden="true">settings</span><span>設定</span></button>
+      </div>
+    </header>
+
+    <div class="workspace">
+      <aside class="sidebar">
+        <p class="eyebrow">Filter</p>
+        <h2>参加者で絞り込み</h2>
+        <p class="filter-note">複数選択は「いずれかに参加」で表示</p>
+        <div class="filter-list" id="filter-list"></div>
+        <div class="filter-active hidden" id="filter-active"></div>
+        <div class="filter-actions">
+          <button class="btn btn-small btn-soft" id="clear-filter-btn" type="button">すべて表示</button>
+        </div>
+      </aside>
+
+      <main class="calendar-panel" id="print-area">
+        <div class="calendar-toolbar">
+          <nav class="month-nav" aria-label="月の移動">
+            <button class="btn btn-icon" id="prev-btn" type="button" aria-label="前月"><span class="material-symbols-rounded" aria-hidden="true">chevron_left</span></button>
+            <h1 class="month-title" id="month-title">2026年7月</h1>
+            <button class="btn btn-icon" id="next-btn" type="button" aria-label="翌月"><span class="material-symbols-rounded" aria-hidden="true">chevron_right</span></button>
+            <button class="btn btn-soft" id="today-btn" type="button"><span class="material-symbols-rounded" aria-hidden="true">today</span>今日</button>
+          </nav>
+        </div>
+        <div class="calendar-head" id="weekday-head"></div>
+        <div class="calendar-grid" id="calendar-grid" aria-label="月間カレンダー"></div>
+      </main>
+    </div>
+
+    <div class="bottom-actions">
+      <button class="btn" id="list-btn" type="button"><span class="material-symbols-rounded" aria-hidden="true">view_list</span>一覧表示</button>
+      <button class="btn btn-primary" id="add-event-btn" type="button"><span class="material-symbols-rounded" aria-hidden="true">add</span>イベントを登録</button>
+    </div>
+  </div>
+
+  <footer class="creator-credit">Developed by SSS-trypleS-</footer>
+  <div id="modal-host"></div>
+  <div class="toast-stack" id="toast-stack" aria-live="polite"></div>
+  <input id="restore-file" class="hidden" type="file" accept="application/json,.json">
+
+  <script>
+  "use strict";
+  (() => {
+    const STORAGE_KEY = "doujin-event-calendar-v1";
+    const SCHEMA_VERSION = 1;
+    const EVENT_COLORS = ["#C5523F", "#D37A35", "#D6A62E", "#3C856D", "#39779B", "#675FA4", "#A85678", "#59645F"];
+    const PARTICIPANT_COLORS = ["#E05A47", "#EE9A3A", "#D4B52C", "#3F9B72", "#3B83B9", "#776AC6", "#C55C8A", "#64736D"];
+    const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
+
+    const $ = (selector, root = document) => root.querySelector(selector);
+    const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
+
+    const now = new Date();
+    let data = loadData();
+    let viewYear = Number.isInteger(data.settings.lastDisplayedYear) ? data.settings.lastDisplayedYear : now.getFullYear();
+    let viewMonth = Number.isInteger(data.settings.lastDisplayedMonth) ? data.settings.lastDisplayedMonth : now.getMonth();
+    let modalDirty = false;
+
+    function createDefaultData() {
+      const current = new Date();
+      return {
+        schemaVersion: SCHEMA_VERSION,
+        events: [],
+        participants: [],
+        settings: {
+          schemaVersion: SCHEMA_VERSION,
+          weekStartsOn: 0,
+          selectedParticipantIds: [],
+          lastDisplayedYear: current.getFullYear(),
+          lastDisplayedMonth: current.getMonth(),
+          circleName: "",
+          circleLogo: "",
+          showCircleLogo: true,
+          defaultEventColor: EVENT_COLORS[0],
+          defaultEventTextColor: "#FFFFFF"
+        },
+        updatedAt: new Date().toISOString()
+      };
+    }
+
+    function loadData() {
+      const fallback = createDefaultData();
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return fallback;
+        const parsed = normalizeData(JSON.parse(raw));
+        if (!validateAppData(parsed)) throw new Error("保存データの形式が正しくありません。");
+        return parsed;
+      } catch (error) {
+        setTimeout(() => toast("保存データを読み込めませんでした。JSONバックアップから復元してください。", "error"), 0);
+        return fallback;
+      }
+    }
+
+    function normalizeData(value) {
+      const defaults = createDefaultData();
+      if (!value || typeof value !== "object") return value;
+      return {
+        ...value,
+        schemaVersion: SCHEMA_VERSION,
+        events: Array.isArray(value.events) ? value.events.map(event => ({
+          ...event,
+          endDate: event.endDate || event.startDate,
+          textColor: typeof event.textColor === "string" ? event.textColor : "#FFFFFF"
+        })) : value.events,
+        participants: Array.isArray(value.participants) ? value.participants : value.participants,
+        settings: {
+          ...defaults.settings,
+          ...(value.settings || {}),
+          circleName: typeof value.settings?.circleName === "string" ? value.settings.circleName : "",
+          circleLogo: typeof value.settings?.circleLogo === "string" ? value.settings.circleLogo : "",
+          showCircleLogo: typeof value.settings?.showCircleLogo === "boolean" ? value.settings.showCircleLogo : true,
+          defaultEventColor: /^#[0-9a-f]{6}$/i.test(value.settings?.defaultEventColor || "") ? value.settings.defaultEventColor : defaults.settings.defaultEventColor,
+          defaultEventTextColor: /^#[0-9a-f]{6}$/i.test(value.settings?.defaultEventTextColor || "") ? value.settings.defaultEventTextColor : defaults.settings.defaultEventTextColor
+        },
+        updatedAt: typeof value.updatedAt === "string" ? value.updatedAt : new Date().toISOString()
+      };
+    }
+
+    function validateAppData(value) {
+      if (!value || typeof value !== "object" || value.schemaVersion !== SCHEMA_VERSION) return false;
+      if (!Array.isArray(value.events) || !Array.isArray(value.participants) || !value.settings) return false;
+      const eventsValid = value.events.every(event =>
+        event && typeof event.id === "string" && typeof event.title === "string" &&
+        isISODate(event.startDate) && isISODate(event.endDate || event.startDate) &&
+        event.startDate <= (event.endDate || event.startDate) &&
+        typeof event.color === "string" && typeof event.textColor === "string" &&
+        Array.isArray(event.participantIds) && event.participantIds.length <= 4 &&
+        new Set(event.participantIds).size === event.participantIds.length &&
+        event.participantIds.every(id => typeof id === "string")
+      );
+      const participantsValid = value.participants.every(participant =>
+        participant && typeof participant.id === "string" && typeof participant.name === "string" &&
+        typeof participant.color === "string" && typeof participant.isActive === "boolean" &&
+        Number.isFinite(participant.sortOrder)
+      );
+      const settingsValid =
+        (value.settings.weekStartsOn === 0 || value.settings.weekStartsOn === 1) &&
+        Array.isArray(value.settings.selectedParticipantIds) &&
+        value.settings.selectedParticipantIds.every(id => typeof id === "string") &&
+        Number.isInteger(value.settings.lastDisplayedYear) &&
+        Number.isInteger(value.settings.lastDisplayedMonth) &&
+        value.settings.lastDisplayedMonth >= 0 && value.settings.lastDisplayedMonth <= 11 &&
+        typeof value.settings.circleName === "string" &&
+        typeof value.settings.circleLogo === "string" &&
+        (!value.settings.circleLogo || /^data:image\/(?:png|jpeg|webp);base64,/i.test(value.settings.circleLogo)) &&
+        typeof value.settings.showCircleLogo === "boolean" &&
+        /^#[0-9a-f]{6}$/i.test(value.settings.defaultEventColor) &&
+        /^#[0-9a-f]{6}$/i.test(value.settings.defaultEventTextColor);
+      return eventsValid && participantsValid && settingsValid;
+    }
+
+    function saveData(message = "保存済み") {
+      setSaveState("saving", "保存中…");
+      data.updatedAt = new Date().toISOString();
+      data.settings.lastDisplayedYear = viewYear;
+      data.settings.lastDisplayedMonth = viewMonth;
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        window.setTimeout(() => setSaveState("saved", message), 120);
+      } catch (error) {
+        setSaveState("error", "保存に失敗");
+        toast("データを保存できませんでした。JSONバックアップを保存してから、ブラウザの保存設定を確認してください。", "error");
+      }
+    }
+
+    function setSaveState(state, label) {
+      const wrapper = $("#save-state");
+      if (!wrapper) return;
+      wrapper.dataset.state = state;
+      $("#save-label").textContent = label;
+    }
+
+    function makeId(prefix) {
+      if (window.crypto && typeof window.crypto.randomUUID === "function") return `${prefix}-${window.crypto.randomUUID()}`;
+      return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    }
+
+    function pad(number) { return String(number).padStart(2, "0"); }
+    function toISODate(year, month, day) { return `${year}-${pad(month + 1)}-${pad(day)}`; }
+    function isISODate(value) { return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(parseLocalDate(value).getTime()); }
+    function parseLocalDate(value) {
+      const [year, month, day] = String(value).split("-").map(Number);
+      return new Date(year, month - 1, day);
+    }
+    function dateToISO(date) { return toISODate(date.getFullYear(), date.getMonth(), date.getDate()); }
+    function formatDate(value) {
+      if (!value) return "";
+      const date = parseLocalDate(value);
+      return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
+    }
+    function formatDateShort(value) {
+      if (!value) return "";
+      const date = parseLocalDate(value);
+      return `${date.getMonth() + 1}/${date.getDate()}`;
+    }
+    function todayISO() { return dateToISO(new Date()); }
+    function participantById(id) { return data.participants.find(item => item.id === id); }
+    function eventEnd(event) { return event.endDate || event.startDate; }
+    function eventCoversDate(event, iso) { return event.startDate <= iso && eventEnd(event) >= iso; }
+    function activeParticipants() { return [...data.participants].filter(item => item.isActive).sort((a,b) => a.sortOrder - b.sortOrder); }
+    function allParticipantsSorted() { return [...data.participants].sort((a,b) => a.sortOrder - b.sortOrder); }
+
+    function filteredEvents() {
+      const selected = data.settings.selectedParticipantIds.filter(id => data.participants.some(item => item.id === id));
+      if (!selected.length) return data.events;
+      return data.events.filter(event => event.participantIds.some(id => selected.includes(id)));
+    }
+
+    function eventsForDate(iso) {
+      return filteredEvents()
+        .filter(event => eventCoversDate(event, iso))
+        .sort((a,b) => a.startDate.localeCompare(b.startDate) || a.title.localeCompare(b.title, "ja"));
+    }
+
+    function monthEvents() {
+      const first = dateToISO(new Date(viewYear, viewMonth, 1));
+      const last = dateToISO(new Date(viewYear, viewMonth + 1, 0));
+      return filteredEvents()
+        .filter(event => event.startDate <= last && eventEnd(event) >= first)
+        .sort((a,b) => a.startDate.localeCompare(b.startDate) || a.title.localeCompare(b.title, "ja"));
+    }
+
+    function toast(message, type = "success") {
+      const item = document.createElement("div");
+      item.className = `toast${type === "error" ? " error" : ""}`;
+      item.textContent = message;
+      $("#toast-stack").appendChild(item);
+      window.setTimeout(() => item.remove(), 4300);
+    }
+
+    function render() {
+      renderBrand();
+      $("#month-title").textContent = `${viewYear}年${viewMonth + 1}月`;
+      renderWeekdays();
+      renderFilters();
+      renderCalendar();
+    }
+
+    function renderBrand() {
+      const circleName = String(data.settings.circleName || "").trim();
+      const nameNode = $("#brand-circle-name");
+      nameNode.textContent = circleName;
+      nameNode.title = circleName;
+      nameNode.classList.toggle("hidden", !circleName);
+
+      const logoNode = $("#brand-logo");
+      const showLogo = Boolean(data.settings.showCircleLogo && data.settings.circleLogo);
+      logoNode.classList.toggle("hidden", !showLogo);
+      if (showLogo) {
+        logoNode.src = data.settings.circleLogo;
+        logoNode.alt = circleName ? `${circleName}のロゴ` : "サークルロゴ";
+      } else {
+        logoNode.removeAttribute("src");
+        logoNode.alt = "";
+      }
+    }
+
+    function renderWeekdays() {
+      const start = data.settings.weekStartsOn === 1 ? 1 : 0;
+      const head = $("#weekday-head");
+      head.replaceChildren();
+      for (let offset = 0; offset < 7; offset += 1) {
+        const cell = document.createElement("div");
+        cell.className = "weekday";
+        cell.textContent = WEEKDAYS[(start + offset) % 7];
+        head.appendChild(cell);
+      }
+    }
+
+    function renderFilters() {
+      const list = $("#filter-list");
+      list.replaceChildren();
+      const participants = allParticipantsSorted().filter(item => item.isActive);
+      if (!participants.length) {
+        const empty = document.createElement("p");
+        empty.className = "filter-note";
+        empty.textContent = "参加者を登録すると、ここから絞り込めます。";
+        list.appendChild(empty);
+      }
+      participants.forEach(participant => {
+        const label = document.createElement("label");
+        label.className = "filter-item";
+        label.title = participant.name;
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.value = participant.id;
+        checkbox.checked = data.settings.selectedParticipantIds.includes(participant.id);
+        checkbox.addEventListener("change", () => {
+          if (checkbox.checked) {
+            data.settings.selectedParticipantIds = [...new Set([...data.settings.selectedParticipantIds, participant.id])];
+          } else {
+            data.settings.selectedParticipantIds = data.settings.selectedParticipantIds.filter(id => id !== participant.id);
+          }
+          saveData();
+          renderFilters();
+          renderCalendar();
+        });
+        const dot = document.createElement("span");
+        dot.className = "color-dot";
+        dot.style.setProperty("--dot", participant.color);
+        const name = document.createElement("span");
+        name.className = "filter-name";
+        name.textContent = participant.name;
+        label.append(checkbox, dot, name);
+        list.appendChild(label);
+      });
+
+      const selectedCount = data.settings.selectedParticipantIds.length;
+      const active = $("#filter-active");
+      active.classList.toggle("hidden", selectedCount === 0);
+      active.textContent = selectedCount ? `${selectedCount}名で絞り込み中（OR条件）` : "";
+    }
+
+    function renderCalendar() {
+      const grid = $("#calendar-grid");
+      grid.replaceChildren();
+      const weekStart = data.settings.weekStartsOn === 1 ? 1 : 0;
+      const first = new Date(viewYear, viewMonth, 1);
+      const offset = (first.getDay() - weekStart + 7) % 7;
+      const gridStart = new Date(viewYear, viewMonth, 1 - offset);
+      const currentToday = todayISO();
+
+      for (let index = 0; index < 42; index += 1) {
+        const date = new Date(gridStart.getFullYear(), gridStart.getMonth(), gridStart.getDate() + index);
+        const iso = dateToISO(date);
+        const dayEvents = eventsForDate(iso);
+        const cell = document.createElement("section");
+        cell.className = "day-cell";
+        if (date.getMonth() !== viewMonth) cell.classList.add("outside");
+        if (iso === currentToday) cell.classList.add("today");
+        cell.dataset.date = iso;
+        cell.setAttribute("aria-label", `${formatDate(iso)}、イベント${dayEvents.length}件`);
+
+        const dayButton = document.createElement("button");
+        dayButton.type = "button";
+        dayButton.className = "day-number";
+        dayButton.textContent = String(date.getDate());
+        dayButton.title = `${formatDate(iso)}にイベントを登録`;
+        dayButton.addEventListener("click", () => openEventForm(null, iso));
+        cell.appendChild(dayButton);
+
+        if (dayEvents.length) {
+          cell.appendChild(createEventCard(dayEvents[0]));
+          const dayMeta = document.createElement("div");
+          dayMeta.className = "day-meta";
+          if (dayEvents[0].boothNumber) {
+            const booth = document.createElement("span");
+            booth.className = "day-booth";
+            booth.textContent = dayEvents[0].boothNumber;
+            booth.title = `スペース番号：${dayEvents[0].boothNumber}`;
+            dayMeta.appendChild(booth);
+          }
+          if (dayEvents.length > 1) {
+            const more = document.createElement("button");
+            more.type = "button";
+            more.className = "more-events";
+            more.textContent = `ほか${dayEvents.length - 1}件`;
+            more.title = `${formatDate(iso)}のイベントをすべて表示`;
+            more.addEventListener("click", event => {
+              event.stopPropagation();
+              openDayEvents(iso);
+            });
+            dayMeta.appendChild(more);
+          }
+          if (dayMeta.childElementCount) cell.appendChild(dayMeta);
+        } else {
+          const hint = document.createElement("span");
+          hint.className = "empty-hint";
+          hint.textContent = "クリックして登録";
+          cell.appendChild(hint);
+        }
+
+        cell.addEventListener("click", event => {
+          if (event.target === cell || event.target.classList.contains("empty-hint")) openEventForm(null, iso);
+        });
+        grid.appendChild(cell);
+      }
+    }
+
+    function createEventCard(eventItem) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "event-card";
+      button.style.setProperty("--event-color", eventItem.color || EVENT_COLORS[0]);
+      button.style.setProperty("--event-text", eventItem.textColor || "#FFFFFF");
+      button.title = `${eventItem.title}を編集`;
+      button.addEventListener("click", event => {
+        event.stopPropagation();
+        openEventForm(eventItem.id);
+      });
+
+      const titleRow = document.createElement("span");
+      titleRow.className = "card-row card-title";
+      const titleText = document.createElement("span");
+      titleText.className = "row-text";
+      titleText.textContent = eventItem.title;
+      titleText.title = eventItem.title;
+      titleRow.appendChild(titleText);
+      button.appendChild(titleRow);
+
+      for (let index = 0; index < 4; index += 1) {
+        const row = document.createElement("span");
+        row.className = "card-row";
+        const participant = participantById(eventItem.participantIds[index]);
+        const dot = document.createElement("span");
+        dot.className = "participant-dot";
+        dot.style.setProperty("--participant-color", participant ? participant.color : "transparent");
+        const text = document.createElement("span");
+        text.className = "row-text";
+        text.textContent = participant ? participant.name : "";
+        if (participant) text.title = participant.name;
+        row.append(dot, text);
+        button.appendChild(row);
+      }
+      return button;
+    }
+
+    function openModal({ title, subtitle = "", body, footer = "", wide = false, trackDirty = true, onReady }) {
+      modalDirty = false;
+      const host = $("#modal-host");
+      host.replaceChildren();
+      const backdrop = document.createElement("div");
+      backdrop.className = "modal-backdrop";
+      backdrop.innerHTML = `
+        <section class="modal${wide ? " modal-wide" : ""}" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+          <header class="modal-header">
+            <div class="modal-title-wrap">
+              <h2 id="modal-title"></h2>
+              <p id="modal-subtitle"></p>
+            </div>
+            <button class="btn btn-icon" type="button" data-close-modal aria-label="閉じる"><span class="material-symbols-rounded" aria-hidden="true">close</span></button>
+          </header>
+          <div class="modal-body"></div>
+          ${footer ? '<footer class="modal-footer"></footer>' : ""}
+        </section>`;
+      $("#modal-title", backdrop).textContent = title;
+      const subtitleNode = $("#modal-subtitle", backdrop);
+      subtitleNode.textContent = subtitle;
+      subtitleNode.classList.toggle("hidden", !subtitle);
+      $(".modal-body", backdrop).innerHTML = body;
+      if (footer) $(".modal-footer", backdrop).innerHTML = footer;
+      host.appendChild(backdrop);
+      $$("[data-close-modal]", backdrop).forEach(button => button.addEventListener("click", () => closeModal()));
+      backdrop.addEventListener("click", event => {
+        if (event.target === backdrop) closeModal();
+      });
+      if (trackDirty) {
+        $$("input, select, textarea", backdrop).forEach(control => {
+          control.addEventListener("input", () => { modalDirty = true; });
+          control.addEventListener("change", () => { modalDirty = true; });
+        });
+      }
+      if (onReady) onReady(backdrop);
+      const firstFocusable = $("input:not([type='hidden']), select, textarea, button", backdrop);
+      if (firstFocusable) firstFocusable.focus();
+    }
+
+    function closeModal(force = false) {
+      if (!force && modalDirty && !window.confirm("未保存の変更があります。破棄して閉じますか？")) return false;
+      $("#modal-host").replaceChildren();
+      modalDirty = false;
+      return true;
+    }
+
+    function eventFormParticipantOptions(currentIds) {
+      const available = data.participants.filter(item => item.isActive || currentIds.includes(item.id))
+        .sort((a,b) => a.sortOrder - b.sortOrder);
+      return available;
+    }
+
+    function openEventForm(eventId, defaultDate = todayISO()) {
+      const source = eventId ? data.events.find(item => item.id === eventId) : null;
+      if (eventId && !source) return;
+      const item = source ? structuredClone(source) : {
+        id: "",
+        title: "",
+        startDate: defaultDate,
+        endDate: defaultDate,
+        venue: "",
+        boothNumber: "",
+        url: "",
+        color: data.settings.defaultEventColor || EVENT_COLORS[0],
+        textColor: data.settings.defaultEventTextColor || "#FFFFFF",
+        participantIds: [],
+        memo: ""
+      };
+      const optionParticipants = eventFormParticipantOptions(item.participantIds);
+
+      openModal({
+        title: source ? "イベントを編集" : "イベントを登録",
+        subtitle: source ? "登録内容を編集" : `${formatDate(defaultDate)}の予定を追加`,
+        body: `
+          <p class="inline-error" id="event-error" role="alert"></p>
+          <form id="event-form" class="form-grid" novalidate>
+            <div class="field field-full">
+              <label class="required" for="event-title">イベント名</label>
+              <input id="event-title" name="title" maxlength="100" autocomplete="off" required>
+            </div>
+            <div class="field field-full">
+              <label class="required" for="event-start">開催日</label>
+              <input id="event-start" name="startDate" type="date" required>
+            </div>
+            <div class="field field-full">
+              <span class="field-label">参加者（最大4名）</span>
+              <div class="participant-slots" id="participant-slots"></div>
+              <p class="field-help">同じ参加者は重複して選択できません。上下ボタンで表示順を変更できます。</p>
+            </div>
+            <div class="field-full color-field-pair">
+              <div class="field">
+                <label class="required" for="event-color">イベント色</label>
+                <input id="event-color" name="color" type="color">
+              </div>
+              <div class="field">
+                <label class="required" for="event-text-color">イベント文字色</label>
+                <input id="event-text-color" name="textColor" type="color">
+              </div>
+            </div>
+            <p class="field-help field-full">イベント名の読みやすさに合わせて選択してください。</p>
+            <div class="field">
+              <label for="event-venue">会場</label>
+              <input id="event-venue" name="venue" maxlength="100" autocomplete="off">
+            </div>
+            <div class="field">
+              <label for="event-booth">スペース番号</label>
+              <input id="event-booth" name="boothNumber" maxlength="60" autocomplete="off">
+              <p class="field-help">入力すると、カレンダーの日付行右側に表示されます。</p>
+            </div>
+            <div class="field">
+              <label for="event-url">URL</label>
+              <input id="event-url" name="url" type="url" maxlength="500" placeholder="https://example.com">
+            </div>
+            <div class="field field-full">
+              <label for="event-memo">メモ</label>
+              <textarea id="event-memo" name="memo" maxlength="2000"></textarea>
+            </div>
+          </form>`,
+        footer: `
+          <div class="modal-footer-group">
+            ${source ? '<button class="btn btn-danger" type="button" id="delete-event-btn"><span class="material-symbols-rounded" aria-hidden="true">delete</span>削除</button><button class="btn" type="button" id="duplicate-event-btn"><span class="material-symbols-rounded" aria-hidden="true">content_copy</span>複製</button>' : ""}
+          </div>
+          <div class="modal-footer-group">
+            <button class="btn" type="button" data-close-modal>キャンセル</button>
+            <button class="btn btn-primary" type="submit" form="event-form"><span class="material-symbols-rounded" aria-hidden="true">save</span>保存</button>
+          </div>`,
+        onReady(backdrop) {
+          $("#event-title", backdrop).value = item.title;
+          $("#event-start", backdrop).value = item.startDate;
+          $("#event-color", backdrop).value = item.color || EVENT_COLORS[0];
+          $("#event-text-color", backdrop).value = item.textColor || "#FFFFFF";
+          $("#event-venue", backdrop).value = item.venue || "";
+          $("#event-booth", backdrop).value = item.boothNumber || "";
+          $("#event-url", backdrop).value = item.url || "";
+          $("#event-memo", backdrop).value = item.memo || "";
+          renderParticipantSlots(backdrop, optionParticipants, item.participantIds);
+
+          $("#event-form", backdrop).addEventListener("submit", event => {
+            event.preventDefault();
+            const form = event.currentTarget;
+            const values = new FormData(form);
+            const participantIds = $$(".participant-select", backdrop).map(select => select.value).filter(Boolean);
+            const error = validateEventForm(values, participantIds);
+            if (error) {
+              const errorNode = $("#event-error", backdrop);
+              errorNode.textContent = error;
+              errorNode.classList.add("visible");
+              errorNode.scrollIntoView({ block: "nearest" });
+              return;
+            }
+            const timestamp = new Date().toISOString();
+            const savedItem = {
+              id: source ? source.id : makeId("event"),
+              title: String(values.get("title")).trim(),
+              startDate: String(values.get("startDate")),
+              endDate: String(values.get("startDate")),
+              venue: String(values.get("venue")).trim(),
+              boothNumber: String(values.get("boothNumber")).trim(),
+              url: String(values.get("url")).trim(),
+              color: String(values.get("color")),
+              textColor: String(values.get("textColor")),
+              participantIds,
+              memo: String(values.get("memo")).trim(),
+              createdAt: source ? source.createdAt : timestamp,
+              updatedAt: timestamp
+            };
+            if (source) {
+              data.events = data.events.map(existing => existing.id === source.id ? savedItem : existing);
+            } else {
+              data.events.push(savedItem);
+            }
+            modalDirty = false;
+            closeModal(true);
+            saveData();
+            render();
+            toast(source ? "イベントを更新しました。" : "イベントを登録しました。");
+          });
+
+          const deleteButton = $("#delete-event-btn", backdrop);
+          if (deleteButton) deleteButton.addEventListener("click", () => {
+            if (!window.confirm(`「${source.title}」を削除しますか？この操作は取り消せません。`)) return;
+            data.events = data.events.filter(existing => existing.id !== source.id);
+            modalDirty = false;
+            closeModal(true);
+            saveData();
+            render();
+            toast("イベントを削除しました。");
+          });
+
+          const duplicateButton = $("#duplicate-event-btn", backdrop);
+          if (duplicateButton) duplicateButton.addEventListener("click", () => {
+            const copy = {
+              ...structuredClone(source),
+              id: makeId("event"),
+              title: `${source.title}（コピー）`,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString()
+            };
+            data.events.push(copy);
+            modalDirty = false;
+            closeModal(true);
+            saveData();
+            render();
+            toast("イベントを複製しました。");
+            openEventForm(copy.id);
+          });
+        }
+      });
+    }
+
+    function renderParticipantSlots(backdrop, participants, selectedIds) {
+      const slots = $("#participant-slots", backdrop);
+      slots.replaceChildren();
+      for (let index = 0; index < 4; index += 1) {
+        const row = document.createElement("div");
+        row.className = "participant-slot";
+        const number = document.createElement("span");
+        number.className = "slot-number";
+        number.textContent = `${index + 1}.`;
+        const select = document.createElement("select");
+        select.className = "participant-select";
+        select.setAttribute("aria-label", `参加者${index + 1}`);
+        const none = document.createElement("option");
+        none.value = "";
+        none.textContent = "未選択";
+        select.appendChild(none);
+        participants.forEach(participant => {
+          const option = document.createElement("option");
+          option.value = participant.id;
+          option.textContent = participant.isActive ? participant.name : `${participant.name}（無効）`;
+          if (!participant.isActive) option.disabled = participant.id !== selectedIds[index];
+          select.appendChild(option);
+        });
+        select.value = selectedIds[index] || "";
+        select.addEventListener("change", () => { modalDirty = true; });
+        const up = document.createElement("button");
+        up.type = "button";
+        up.className = "btn btn-small reorder-button";
+        up.innerHTML = '<span class="material-symbols-rounded" aria-hidden="true">keyboard_arrow_up</span>';
+        up.title = "上へ移動";
+        up.setAttribute("aria-label", `参加者${index + 1}を上へ移動`);
+        up.disabled = index === 0;
+        up.addEventListener("click", () => {
+          const selects = $$(".participant-select", backdrop);
+          [selects[index - 1].value, selects[index].value] = [selects[index].value, selects[index - 1].value];
+          modalDirty = true;
+        });
+        const down = document.createElement("button");
+        down.type = "button";
+        down.className = "btn btn-small reorder-button";
+        down.innerHTML = '<span class="material-symbols-rounded" aria-hidden="true">keyboard_arrow_down</span>';
+        down.title = "下へ移動";
+        down.setAttribute("aria-label", `参加者${index + 1}を下へ移動`);
+        down.disabled = index === 3;
+        down.addEventListener("click", () => {
+          const selects = $$(".participant-select", backdrop);
+          [selects[index + 1].value, selects[index].value] = [selects[index].value, selects[index + 1].value];
+          modalDirty = true;
+        });
+        row.append(number, select, up, down);
+        slots.appendChild(row);
+      }
+    }
+
+    function validateEventForm(values, participantIds) {
+      const title = String(values.get("title")).trim();
+      const start = String(values.get("startDate"));
+      const url = String(values.get("url")).trim();
+      if (!title) return "イベント名を入力してください。";
+      if (!isISODate(start)) return "開催日を入力してください。";
+      if (participantIds.length > 4) return "参加者は最大4名までです。";
+      if (new Set(participantIds).size !== participantIds.length) return "同じ参加者が複数選択されています。各参加者は1枠だけ選択してください。";
+      if (url && !/^https?:\/\//i.test(url)) return "URLは http:// または https:// で始まる形式で入力してください。";
+      return "";
+    }
+
+    function openDayEvents(iso) {
+      const items = eventsForDate(iso);
+      openModal({
+        title: formatDate(iso),
+        subtitle: `イベント ${items.length}件`,
+        body: '<div class="day-event-list" id="day-event-list"></div>',
+        footer: `
+          <div></div>
+          <button class="btn btn-primary" type="button" id="day-add-btn"><span class="material-symbols-rounded" aria-hidden="true">add</span>この日に登録</button>`,
+        onReady(backdrop) {
+          const list = $("#day-event-list", backdrop);
+          items.forEach(item => {
+            const row = document.createElement("article");
+            row.className = "day-event-item";
+            const stripe = document.createElement("span");
+            stripe.className = "event-stripe";
+            stripe.style.setProperty("--event-color", item.color);
+            const summary = document.createElement("div");
+            summary.className = "event-summary";
+            const title = document.createElement("strong");
+            title.textContent = item.title;
+            const participantNames = item.participantIds.map(id => participantById(id)?.name).filter(Boolean);
+            const meta = document.createElement("span");
+            meta.className = "event-meta";
+            meta.textContent = [item.venue, participantNames.join("・")].filter(Boolean).join(" ／ ") || "詳細情報なし";
+            summary.append(title, meta);
+            const edit = document.createElement("button");
+            edit.type = "button";
+            edit.className = "btn btn-small";
+            edit.textContent = "編集";
+            edit.addEventListener("click", () => openEventForm(item.id));
+            row.append(stripe, summary, edit);
+            list.appendChild(row);
+          });
+          $("#day-add-btn", backdrop).addEventListener("click", () => openEventForm(null, iso));
+        }
+      });
+    }
+
+    function openParticipantsModal() {
+      openModal({
+        title: "管理",
+        subtitle: "サークル情報と参加者を管理",
+        wide: true,
+        trackDirty: false,
+        body: `
+          <section class="management-profile">
+            <div class="logo-editor">
+              <div class="logo-preview" id="management-logo-preview">
+                <span class="material-symbols-rounded" aria-hidden="true">image</span>
+              </div>
+              <input class="hidden" id="circle-logo-file" type="file" accept="image/png,image/jpeg,image/webp">
+              <button class="btn btn-small" type="button" id="choose-logo-btn">
+                <span class="material-symbols-rounded" aria-hidden="true">upload</span>ロゴを選択
+              </button>
+              <button class="btn btn-small hidden" type="button" id="remove-logo-btn">
+                <span class="material-symbols-rounded" aria-hidden="true">delete</span>削除
+              </button>
+            </div>
+            <div class="management-fields">
+              <div class="field">
+                <label for="circle-name">サークル名</label>
+                <input id="circle-name" maxlength="100" autocomplete="organization" placeholder="例：SSS-trypleS-">
+                <p class="field-help">ヘッダーの「イベントカレンダー」の左側に表示します。</p>
+              </div>
+              <label class="checkbox-row">
+                <input id="show-circle-logo" type="checkbox">
+                ヘッダーにサークルロゴを表示
+              </label>
+              <p class="field-help">PNG・JPG・WebP（10MB以下）に対応。登録時に円形表示の範囲を調整できます。</p>
+            </div>
+          </section>
+          <div class="section-heading">
+            <h3>参加者</h3>
+            <button class="btn btn-primary btn-small" type="button" id="add-participant-btn">
+              <span class="material-symbols-rounded" aria-hidden="true">person_add</span>参加者を登録
+            </button>
+          </div>
+          <div class="participant-list" id="participant-list"></div>`,
+        onReady(backdrop) {
+          $("#circle-name", backdrop).value = data.settings.circleName || "";
+          $("#show-circle-logo", backdrop).checked = Boolean(data.settings.showCircleLogo);
+          $("#show-circle-logo", backdrop).disabled = !data.settings.circleLogo;
+          renderManagementLogoPreview(backdrop);
+          renderParticipantManagerList(backdrop);
+          $("#add-participant-btn", backdrop).addEventListener("click", () => openParticipantForm());
+          $("#circle-name", backdrop).addEventListener("input", () => persistManagementSettings(backdrop, false));
+          $("#show-circle-logo", backdrop).addEventListener("change", () => persistManagementSettings(backdrop, false));
+          $("#choose-logo-btn", backdrop).addEventListener("click", () => $("#circle-logo-file", backdrop).click());
+          $("#remove-logo-btn", backdrop).addEventListener("click", () => {
+            if (!window.confirm("登録したサークルロゴを削除しますか？")) return;
+            data.settings.circleLogo = "";
+            data.settings.showCircleLogo = false;
+            modalDirty = false;
+            saveData();
+            render();
+            openParticipantsModal();
+            toast("サークルロゴを削除しました。");
+          });
+          $("#circle-logo-file", backdrop).addEventListener("change", event => {
+            const file = event.target.files && event.target.files[0];
+            if (!file) return;
+            if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
+              toast("ロゴはPNG・JPG・WebP形式の画像を選択してください。", "error");
+              return;
+            }
+            if (file.size > 10 * 1024 * 1024) {
+              toast("画像サイズが10MBを超えています。小さい画像を選択してください。", "error");
+              return;
+            }
+            persistManagementSettings(backdrop, false);
+            const reader = new FileReader();
+            reader.onload = () => openLogoCrop(String(reader.result));
+            reader.onerror = () => toast("画像を読み込めませんでした。別のファイルを選択してください。", "error");
+            reader.readAsDataURL(file);
+          });
+        }
+      });
+    }
+
+    function renderManagementLogoPreview(backdrop) {
+      const preview = $("#management-logo-preview", backdrop);
+      preview.replaceChildren();
+      if (data.settings.circleLogo) {
+        const image = document.createElement("img");
+        image.src = data.settings.circleLogo;
+        image.alt = "登録済みのサークルロゴ";
+        preview.appendChild(image);
+        $("#remove-logo-btn", backdrop).classList.remove("hidden");
+      } else {
+        const icon = document.createElement("span");
+        icon.className = "material-symbols-rounded";
+        icon.setAttribute("aria-hidden", "true");
+        icon.textContent = "image";
+        preview.appendChild(icon);
+      }
+    }
+
+    function persistManagementSettings(backdrop, notify = true) {
+      data.settings.circleName = $("#circle-name", backdrop).value.trim();
+      data.settings.showCircleLogo = Boolean(data.settings.circleLogo && $("#show-circle-logo", backdrop).checked);
+      modalDirty = false;
+      saveData();
+      render();
+      if (notify) toast("管理設定を保存しました。");
+    }
+
+    function openLogoCrop(imageSource) {
+      openModal({
+        title: "ロゴをトリミング",
+        subtitle: "ドラッグと拡大率で円形に表示する範囲を調整",
+        body: `
+          <div class="crop-workspace">
+            <div class="crop-canvas-wrap" id="crop-canvas-wrap">
+              <canvas class="crop-canvas" id="crop-canvas" width="640" height="640"></canvas>
+              <div class="crop-guide" aria-hidden="true"></div>
+            </div>
+            <div class="crop-controls field">
+              <label for="crop-zoom">拡大率</label>
+              <input id="crop-zoom" type="range" min="1" max="3" step="0.01" value="1">
+              <p class="field-help">画像をドラッグして位置を調整してください。円の外側はヘッダーに表示されません。</p>
+            </div>
+          </div>`,
+        footer: `
+          <button class="btn" type="button" id="crop-back-btn">戻る</button>
+          <button class="btn btn-primary" type="button" id="save-crop-btn">
+            <span class="material-symbols-rounded" aria-hidden="true">crop</span>この範囲で登録
+          </button>`,
+        onReady(backdrop) {
+          const canvas = $("#crop-canvas", backdrop);
+          const context = canvas.getContext("2d");
+          const image = new Image();
+          const state = { zoom: 1, offsetX: 0, offsetY: 0, dragging: false, startX: 0, startY: 0, originX: 0, originY: 0 };
+
+          function dimensions() {
+            const cover = Math.max(canvas.width / image.naturalWidth, canvas.height / image.naturalHeight);
+            return {
+              width: image.naturalWidth * cover * state.zoom,
+              height: image.naturalHeight * cover * state.zoom
+            };
+          }
+
+          function clampOffsets() {
+            const size = dimensions();
+            const maxX = Math.max(0, (size.width - canvas.width) / 2);
+            const maxY = Math.max(0, (size.height - canvas.height) / 2);
+            state.offsetX = Math.max(-maxX, Math.min(maxX, state.offsetX));
+            state.offsetY = Math.max(-maxY, Math.min(maxY, state.offsetY));
+          }
+
+          function drawCrop() {
+            if (!image.naturalWidth) return;
+            clampOffsets();
+            const size = dimensions();
+            const x = (canvas.width - size.width) / 2 + state.offsetX;
+            const y = (canvas.height - size.height) / 2 + state.offsetY;
+            context.clearRect(0, 0, canvas.width, canvas.height);
+            context.fillStyle = "#ffffff";
+            context.fillRect(0, 0, canvas.width, canvas.height);
+            context.drawImage(image, x, y, size.width, size.height);
+          }
+
+          image.onload = drawCrop;
+          image.onerror = () => {
+            toast("画像を表示できませんでした。別の画像を選択してください。", "error");
+            openParticipantsModal();
+          };
+          image.src = imageSource;
+
+          $("#crop-zoom", backdrop).addEventListener("input", event => {
+            state.zoom = Number(event.target.value);
+            drawCrop();
+          });
+
+          const wrapper = $("#crop-canvas-wrap", backdrop);
+          wrapper.addEventListener("pointerdown", event => {
+            state.dragging = true;
+            state.startX = event.clientX;
+            state.startY = event.clientY;
+            state.originX = state.offsetX;
+            state.originY = state.offsetY;
+            wrapper.setPointerCapture(event.pointerId);
+          });
+          wrapper.addEventListener("pointermove", event => {
+            if (!state.dragging) return;
+            state.offsetX = state.originX + (event.clientX - state.startX) * 2;
+            state.offsetY = state.originY + (event.clientY - state.startY) * 2;
+            drawCrop();
+          });
+          wrapper.addEventListener("pointerup", event => {
+            state.dragging = false;
+            wrapper.releasePointerCapture(event.pointerId);
+          });
+          wrapper.addEventListener("pointercancel", () => { state.dragging = false; });
+
+          $("#crop-back-btn", backdrop).addEventListener("click", openParticipantsModal);
+          $("#save-crop-btn", backdrop).addEventListener("click", () => {
+            const output = document.createElement("canvas");
+            output.width = 256;
+            output.height = 256;
+            output.getContext("2d").drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, output.width, output.height);
+            data.settings.circleLogo = output.toDataURL("image/webp", .9);
+            data.settings.showCircleLogo = true;
+            modalDirty = false;
+            saveData();
+            render();
+            toast("サークルロゴを登録しました。");
+            openParticipantsModal();
+          });
+        }
+      });
+    }
+
+    function renderParticipantManagerList(backdrop) {
+      const list = $("#participant-list", backdrop);
+      list.replaceChildren();
+      const participants = allParticipantsSorted();
+      if (!participants.length) {
+        const empty = document.createElement("div");
+        empty.className = "empty-state";
+        empty.innerHTML = "<strong>参加者はまだ登録されていません</strong>最初の参加者を登録して、イベントへ割り当てましょう。";
+        list.appendChild(empty);
+        return;
+      }
+      participants.forEach((participant, index) => {
+        const row = document.createElement("div");
+        row.className = `participant-row${participant.isActive ? "" : " inactive"}`;
+        const dot = document.createElement("span");
+        dot.className = "color-dot";
+        dot.style.setProperty("--dot", participant.color);
+        const name = document.createElement("span");
+        name.className = "participant-name";
+        name.textContent = participant.name;
+        name.title = participant.name;
+        const circle = document.createElement("span");
+        circle.className = "participant-circle";
+        circle.textContent = participant.circleName || "サークル未登録";
+        const actions = document.createElement("div");
+        actions.className = "row-actions";
+        const up = actionButton("上へ", "上へ移動", () => moveParticipant(index, -1), "keyboard_arrow_up");
+        up.disabled = index === 0;
+        const down = actionButton("下へ", "下へ移動", () => moveParticipant(index, 1), "keyboard_arrow_down");
+        down.disabled = index === participants.length - 1;
+        const edit = actionButton("編集", "参加者を編集", () => openParticipantForm(participant.id), "edit");
+        const toggle = actionButton(participant.isActive ? "無効化" : "再有効化", participant.isActive ? "参加者を無効化" : "参加者を再有効化", () => toggleParticipant(participant.id), participant.isActive ? "visibility_off" : "visibility");
+        actions.append(up, down, edit, toggle);
+        row.append(dot, name, circle, actions);
+        list.appendChild(row);
+      });
+    }
+
+    function actionButton(label, title, handler, iconName = "") {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "btn btn-small";
+      if (iconName) {
+        const icon = document.createElement("span");
+        icon.className = "material-symbols-rounded";
+        icon.setAttribute("aria-hidden", "true");
+        icon.textContent = iconName;
+        button.appendChild(icon);
+      }
+      button.appendChild(document.createTextNode(label));
+      button.title = title;
+      button.addEventListener("click", handler);
+      return button;
+    }
+
+    function moveParticipant(index, direction) {
+      const sorted = allParticipantsSorted();
+      const target = index + direction;
+      if (target < 0 || target >= sorted.length) return;
+      [sorted[index], sorted[target]] = [sorted[target], sorted[index]];
+      sorted.forEach((item, sortOrder) => { item.sortOrder = sortOrder; item.updatedAt = new Date().toISOString(); });
+      data.participants = sorted;
+      saveData();
+      render();
+      openParticipantsModal();
+    }
+
+    function toggleParticipant(id) {
+      const participant = participantById(id);
+      if (!participant) return;
+      participant.isActive = !participant.isActive;
+      participant.updatedAt = new Date().toISOString();
+      if (!participant.isActive) {
+        data.settings.selectedParticipantIds = data.settings.selectedParticipantIds.filter(selectedId => selectedId !== id);
+      }
+      saveData();
+      render();
+      openParticipantsModal();
+      toast(participant.isActive ? "参加者を再有効化しました。" : "参加者を無効化しました。過去イベントの表示は維持されます。");
+    }
+
+    function openParticipantForm(participantId) {
+      const source = participantId ? participantById(participantId) : null;
+      const item = source || {
+        name: "",
+        circleName: "",
+        color: PARTICIPANT_COLORS[data.participants.length % PARTICIPANT_COLORS.length],
+        memo: ""
+      };
+      openModal({
+        title: source ? "参加者を編集" : "参加者を登録",
+        subtitle: "イベントカードに表示する情報",
+        body: `
+          <p class="inline-error" id="participant-error" role="alert"></p>
+          <form id="participant-form" class="form-grid" novalidate>
+            <div class="field field-full">
+              <label class="required" for="participant-name">表示名</label>
+              <input id="participant-name" name="name" maxlength="60" autocomplete="off" required>
+            </div>
+            <div class="field">
+              <label for="participant-circle">サークル名</label>
+              <input id="participant-circle" name="circleName" maxlength="100" autocomplete="off">
+            </div>
+            <div class="field">
+              <label class="required" for="participant-color">参加者色</label>
+              <input id="participant-color" name="color" type="color">
+            </div>
+            <div class="field field-full">
+              <label for="participant-memo">メモ</label>
+              <textarea id="participant-memo" name="memo" maxlength="1000"></textarea>
+            </div>
+          </form>`,
+        footer: `
+          <div></div>
+          <div class="modal-footer-group">
+            <button class="btn" type="button" id="back-participants-btn">戻る</button>
+            <button class="btn btn-primary" type="submit" form="participant-form"><span class="material-symbols-rounded" aria-hidden="true">save</span>保存</button>
+          </div>`,
+        onReady(backdrop) {
+          $("#participant-name", backdrop).value = item.name;
+          $("#participant-circle", backdrop).value = item.circleName || "";
+          $("#participant-color", backdrop).value = item.color || PARTICIPANT_COLORS[0];
+          $("#participant-memo", backdrop).value = item.memo || "";
+          $("#back-participants-btn", backdrop).addEventListener("click", () => {
+            if (!modalDirty || window.confirm("未保存の変更を破棄して戻りますか？")) openParticipantsModal();
+          });
+          $("#participant-form", backdrop).addEventListener("submit", event => {
+            event.preventDefault();
+            const values = new FormData(event.currentTarget);
+            const name = String(values.get("name")).trim();
+            if (!name) {
+              const error = $("#participant-error", backdrop);
+              error.textContent = "表示名を入力してください。";
+              error.classList.add("visible");
+              return;
+            }
+            const timestamp = new Date().toISOString();
+            const savedItem = {
+              id: source ? source.id : makeId("participant"),
+              name,
+              circleName: String(values.get("circleName")).trim(),
+              color: String(values.get("color")),
+              memo: String(values.get("memo")).trim(),
+              sortOrder: source ? source.sortOrder : data.participants.length,
+              isActive: source ? source.isActive : true,
+              createdAt: source ? source.createdAt : timestamp,
+              updatedAt: timestamp
+            };
+            if (source) data.participants = data.participants.map(existing => existing.id === source.id ? savedItem : existing);
+            else data.participants.push(savedItem);
+            modalDirty = false;
+            saveData();
+            render();
+            toast(source ? "参加者を更新しました。" : "参加者を登録しました。");
+            openParticipantsModal();
+          });
+        }
+      });
+    }
+
+    function openEventList() {
+      const events = [...filteredEvents()].sort((a,b) => a.startDate.localeCompare(b.startDate) || a.title.localeCompare(b.title, "ja"));
+      openModal({
+        title: "イベント一覧",
+        subtitle: `${events.length}件${data.settings.selectedParticipantIds.length ? "（絞り込み適用中）" : ""}`,
+        wide: true,
+        body: events.length ? `
+          <div style="overflow:auto">
+            <table class="data-table">
+              <thead><tr><th>開催日</th><th>イベント名</th><th>会場・スペース</th><th>参加者</th><th></th></tr></thead>
+              <tbody id="event-table-body"></tbody>
+            </table>
+          </div>` : '<div class="empty-state"><strong>表示できるイベントがありません</strong>イベントを登録するか、絞り込み条件を解除してください。</div>',
+        footer: `
+          <div></div>
+          <button class="btn btn-primary" type="button" id="list-add-btn"><span class="material-symbols-rounded" aria-hidden="true">add</span>イベントを登録</button>`,
+        onReady(backdrop) {
+          const tbody = $("#event-table-body", backdrop);
+          if (tbody) events.forEach(item => {
+            const row = document.createElement("tr");
+            const dateCell = document.createElement("td");
+            dateCell.textContent = item.startDate === eventEnd(item) ? formatDateShort(item.startDate) : `${formatDateShort(item.startDate)}〜${formatDateShort(eventEnd(item))}`;
+            const titleCell = document.createElement("td");
+            const title = document.createElement("div");
+            title.className = "table-title";
+            title.textContent = item.title;
+            title.title = item.title;
+            titleCell.appendChild(title);
+            const venueCell = document.createElement("td");
+            venueCell.textContent = [item.venue, item.boothNumber].filter(Boolean).join(" / ") || "—";
+            const participantsCell = document.createElement("td");
+            participantsCell.textContent = item.participantIds.map(id => participantById(id)?.name).filter(Boolean).join("、") || "—";
+            const actionCell = document.createElement("td");
+            const edit = actionButton("編集", "イベントを編集", () => openEventForm(item.id));
+            actionCell.appendChild(edit);
+            row.append(dateCell, titleCell, venueCell, participantsCell, actionCell);
+            tbody.appendChild(row);
+          });
+          $("#list-add-btn", backdrop).addEventListener("click", () => openEventForm());
+        }
+      });
+    }
+
+    function openExportModal() {
+      openModal({
+        title: "出力とバックアップ",
+        subtitle: `${viewYear}年${viewMonth + 1}月の表示内容を出力`,
+        wide: true,
+        body: `
+          <div class="field" style="margin-bottom:16px">
+            <label for="export-month">カレンダー出力対象</label>
+            <input id="export-month" type="month">
+          </div>
+          <div class="export-grid">
+            <section class="export-card">
+              <div class="export-icon">PNG</div>
+              <div>
+                <h3>カレンダー画像</h3>
+                <p>表示中の月を、色と5行固定カードを保った画像にします。</p>
+                <div class="option-row">
+                  <label><input type="radio" name="png-scale" value="1" checked> 通常</label>
+                  <label><input type="radio" name="png-scale" value="2"> 高解像度</label>
+                </div>
+                <div class="option-row">
+                  <label><input id="png-title" type="checkbox" checked> タイトル</label>
+                </div>
+                <button class="btn btn-soft export-action" type="button" id="png-export-btn"><span class="material-symbols-rounded" aria-hidden="true">image</span>PNGを保存</button>
+              </div>
+            </section>
+            <section class="export-card">
+              <div class="export-icon">PDF</div>
+              <div>
+                <h3>PDF・印刷</h3>
+                <p>A4横の印刷画面を開きます。送信先で「PDFに保存」を選べます。</p>
+                <button class="btn btn-soft export-action" type="button" id="print-btn"><span class="material-symbols-rounded" aria-hidden="true">print</span>印刷画面を開く</button>
+              </div>
+            </section>
+            <section class="export-card">
+              <div class="export-icon">CSV</div>
+              <div>
+                <h3>イベント一覧</h3>
+                <p>全イベントをExcelでも開きやすいUTF-8 BOM付きCSVにします。</p>
+                <button class="btn btn-soft" type="button" id="csv-export-btn"><span class="material-symbols-rounded" aria-hidden="true">table_view</span>CSVを保存</button>
+              </div>
+            </section>
+            <section class="export-card">
+              <div class="export-icon">JSON</div>
+              <div>
+                <h3>バックアップ</h3>
+                <p>イベント、参加者、設定をJSON形式で保存します。</p>
+                <button class="btn btn-soft" type="button" id="json-export-btn"><span class="material-symbols-rounded" aria-hidden="true">data_object</span>JSON保存</button>
+              </div>
+            </section>
+          </div>`,
+        onReady(backdrop) {
+          $("#export-month", backdrop).value = `${viewYear}-${pad(viewMonth + 1)}`;
+          $("#json-export-btn", backdrop).addEventListener("click", exportJson);
+          $("#csv-export-btn", backdrop).addEventListener("click", exportCsv);
+          $("#png-export-btn", backdrop).addEventListener("click", () => {
+            const scale = Number($('input[name="png-scale"]:checked', backdrop).value);
+            const [targetYear, targetMonthNumber] = $("#export-month", backdrop).value.split("-").map(Number);
+            exportPng(scale, $("#png-title", backdrop).checked, targetYear, targetMonthNumber - 1);
+          });
+          $("#print-btn", backdrop).addEventListener("click", () => {
+            const [targetYear, targetMonthNumber] = $("#export-month", backdrop).value.split("-").map(Number);
+            if (Number.isInteger(targetYear) && Number.isInteger(targetMonthNumber)) {
+              viewYear = targetYear;
+              viewMonth = targetMonthNumber - 1;
+              saveData();
+              render();
+            }
+            modalDirty = false;
+            closeModal(true);
+            window.setTimeout(() => window.print(), 80);
+          });
+        }
+      });
+    }
+
+    function timestampForFile(date = new Date()) {
+      return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}-${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`;
+    }
+
+    function downloadBlob(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    function exportJson() {
+      try {
+        const backup = {
+          schemaVersion: SCHEMA_VERSION,
+          exportedAt: new Date().toISOString(),
+          events: data.events,
+          participants: data.participants,
+          settings: data.settings,
+          updatedAt: data.updatedAt
+        };
+        downloadBlob(new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" }), `doujin-event-calendar-backup-${timestampForFile()}.json`);
+        toast("JSONバックアップを保存しました。");
+      } catch (error) {
+        toast("JSONバックアップを出力できませんでした。ブラウザのダウンロード設定を確認してください。", "error");
+      }
+    }
+
+    function restoreJson(file) {
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const parsed = JSON.parse(String(reader.result));
+          const candidate = normalizeData({
+            schemaVersion: parsed.schemaVersion,
+            events: parsed.events,
+            participants: parsed.participants,
+            settings: parsed.settings,
+            updatedAt: parsed.updatedAt || parsed.exportedAt || new Date().toISOString()
+          });
+          if (!validateAppData(candidate)) throw new Error("バックアップの形式またはバージョンが対応していません。");
+          if (!window.confirm(`バックアップ内のイベント${candidate.events.length}件・参加者${candidate.participants.length}名で、現在のデータを置き換えますか？`)) return;
+          data = candidate;
+          viewYear = Number.isInteger(data.settings.lastDisplayedYear) ? data.settings.lastDisplayedYear : now.getFullYear();
+          viewMonth = Number.isInteger(data.settings.lastDisplayedMonth) ? data.settings.lastDisplayedMonth : now.getMonth();
+          saveData();
+          closeModal(true);
+          render();
+          toast("バックアップからデータを復元しました。");
+        } catch (error) {
+          toast(`JSON復元に失敗しました。${error.message || "ファイル内容を確認してください。"}`, "error");
+        } finally {
+          $("#restore-file").value = "";
+        }
+      };
+      reader.onerror = () => toast("ファイルを読み込めませんでした。別のJSONバックアップを選択してください。", "error");
+      reader.readAsText(file);
+    }
+
+    function csvCell(value) {
+      const text = String(value ?? "").replace(/\r?\n/g, " ");
+      return `"${text.replace(/"/g, '""')}"`;
+    }
+
+    function exportCsv() {
+      try {
+        const header = ["EventName","StartDate","EndDate","Venue","BoothNumber","Participant1","Participant2","Participant3","Participant4","URL","Memo"];
+        const rows = [...data.events].sort((a,b) => a.startDate.localeCompare(b.startDate)).map(item => {
+          const participants = item.participantIds.map(id => participantById(id)?.name || "");
+          while (participants.length < 4) participants.push("");
+          return [item.title,item.startDate,eventEnd(item),item.venue,item.boothNumber,...participants.slice(0,4),item.url,item.memo].map(csvCell).join(",");
+        });
+        downloadBlob(new Blob(["\uFEFF", [header.join(","), ...rows].join("\r\n")], { type: "text/csv;charset=utf-8" }), `doujin-event-calendar-${timestampForFile()}.csv`);
+        toast("CSVを保存しました。");
+      } catch (error) {
+        toast("CSVを出力できませんでした。ブラウザのダウンロード設定を確認してください。", "error");
+      }
+    }
+
+    function fitCanvasText(context, value, maxWidth) {
+      const text = String(value || "");
+      if (context.measureText(text).width <= maxWidth) return text;
+      let clipped = text;
+      while (clipped && context.measureText(`${clipped}…`).width > maxWidth) clipped = clipped.slice(0, -1);
+      return `${clipped}…`;
+    }
+
+    function exportPng(scale, includeTitle, targetYear = viewYear, targetMonth = viewMonth) {
+      try {
+        const baseWidth = 1680;
+        const titleHeight = includeTitle ? 82 : 24;
+        const weekdayHeight = 42;
+        const cellHeight = 166;
+        const baseHeight = titleHeight + weekdayHeight + cellHeight * 6 + 18;
+        const canvas = document.createElement("canvas");
+        canvas.width = baseWidth * scale;
+        canvas.height = baseHeight * scale;
+        const context = canvas.getContext("2d");
+        context.scale(scale, scale);
+        context.fillStyle = "#ffffff";
+        context.fillRect(0, 0, baseWidth, baseHeight);
+        context.textBaseline = "middle";
+
+        if (includeTitle) {
+          context.fillStyle = "#172033";
+          context.font = '700 34px "Noto Sans JP", sans-serif';
+          const exportBrand = data.settings.circleName ? `${data.settings.circleName}　` : "";
+          context.fillText(`${targetYear}年 ${targetMonth + 1}月　${exportBrand}イベントカレンダー`, 28, 41);
+        }
+
+        const top = titleHeight;
+        const cellWidth = baseWidth / 7;
+        const weekStart = data.settings.weekStartsOn === 1 ? 1 : 0;
+        for (let column = 0; column < 7; column += 1) {
+          context.fillStyle = "#eef3ff";
+          context.fillRect(column * cellWidth, top, cellWidth, weekdayHeight);
+          context.strokeStyle = "#cfd6e3";
+          context.strokeRect(column * cellWidth, top, cellWidth, weekdayHeight);
+          context.fillStyle = column === 0 ? "#c23b4a" : column === 6 ? "#3867d6" : "#657089";
+          context.font = "700 16px sans-serif";
+          context.textAlign = "center";
+          context.fillText(WEEKDAYS[(weekStart + column) % 7], column * cellWidth + cellWidth / 2, top + weekdayHeight / 2);
+        }
+
+        const first = new Date(targetYear, targetMonth, 1);
+        const offset = (first.getDay() - weekStart + 7) % 7;
+        const gridStart = new Date(targetYear, targetMonth, 1 - offset);
+        for (let index = 0; index < 42; index += 1) {
+          const row = Math.floor(index / 7);
+          const column = index % 7;
+          const x = column * cellWidth;
+          const y = top + weekdayHeight + row * cellHeight;
+          const date = new Date(gridStart.getFullYear(), gridStart.getMonth(), gridStart.getDate() + index);
+          const iso = dateToISO(date);
+          const items = eventsForDate(iso);
+          context.fillStyle = date.getMonth() === targetMonth ? "#ffffff" : "#f4f6fa";
+          context.fillRect(x, y, cellWidth, cellHeight);
+          context.strokeStyle = "#e1e6ef";
+          context.strokeRect(x, y, cellWidth, cellHeight);
+          context.textAlign = "left";
+          context.fillStyle = date.getMonth() === targetMonth ? (column === 0 ? "#c23b4a" : column === 6 ? "#3867d6" : "#657089") : "#a7afbf";
+          context.font = '700 14px "Noto Sans JP", sans-serif';
+          context.fillText(String(date.getDate()), x + 11, y + 18);
+          if (!items.length) continue;
+
+          const item = items[0];
+          const cardX = x + 8;
+          const cardY = y + 34;
+          const cardWidth = cellWidth - 16;
+          context.fillStyle = item.color || EVENT_COLORS[0];
+          context.fillRect(cardX, cardY, cardWidth, 24);
+          context.font = '700 13px "Noto Sans JP", sans-serif';
+          context.fillStyle = item.textColor || "#FFFFFF";
+          context.fillText(fitCanvasText(context, item.title, cardWidth - 18), cardX + 8, cardY + 12);
+          for (let slot = 0; slot < 4; slot += 1) {
+            const participant = participantById(item.participantIds[slot]);
+            const rowY = cardY + 38 + slot * 19;
+            if (!participant) continue;
+            context.fillStyle = participant.color || "#888";
+            context.beginPath();
+            context.arc(cardX + 19, rowY, 4, 0, Math.PI * 2);
+            context.fill();
+            context.fillStyle = "#657089";
+            context.font = '12px "Noto Sans JP", sans-serif';
+            context.fillText(fitCanvasText(context, participant.name, cardWidth - 38), cardX + 29, rowY);
+          }
+          const dateRowDetails = [];
+          if (item.boothNumber) dateRowDetails.push(item.boothNumber);
+          if (items.length > 1) dateRowDetails.push(`ほか${items.length - 1}件`);
+          if (dateRowDetails.length) {
+            context.fillStyle = "#3867d6";
+            context.font = "700 11px sans-serif";
+            context.textAlign = "right";
+            context.fillText(fitCanvasText(context, dateRowDetails.join(" / "), cellWidth - 56), x + cellWidth - 9, y + 18);
+          }
+        }
+
+        canvas.toBlob(blob => {
+          if (!blob) {
+            toast("PNGを生成できませんでした。解像度を通常にして再試行してください。", "error");
+            return;
+          }
+          downloadBlob(blob, `doujin-event-calendar-${targetYear}-${pad(targetMonth + 1)}.png`);
+          toast("PNG画像を保存しました。");
+        }, "image/png");
+      } catch (error) {
+        toast("PNG生成に失敗しました。ブラウザのメモリを確認し、通常解像度で再試行してください。", "error");
+      }
+    }
+
+    function openSettings() {
+      openModal({
+        title: "設定",
+        subtitle: "カレンダー表示と保存データ",
+        body: `
+          <section class="settings-section">
+            <h3>週の開始曜日</h3>
+            <p>カレンダーの左端に表示する曜日を選びます。</p>
+            <div class="field">
+              <label for="week-start">開始曜日</label>
+              <select id="week-start">
+                <option value="0">日曜日</option>
+                <option value="1">月曜日</option>
+              </select>
+            </div>
+          </section>
+          <section class="settings-section">
+            <h3>イベントの既定色</h3>
+            <p>新しいイベントを登録するときの初期値です。登録画面で個別に変更できます。</p>
+            <div class="color-field-pair">
+              <div class="field">
+                <label for="default-event-color">イベント色</label>
+                <input id="default-event-color" type="color">
+              </div>
+              <div class="field">
+                <label for="default-event-text-color">イベント文字色</label>
+                <input id="default-event-text-color" type="color">
+              </div>
+            </div>
+          </section>
+          <section class="settings-section">
+            <h3>保存情報</h3>
+            <p id="storage-summary"></p>
+            <div class="modal-footer-group">
+              <button class="btn" type="button" id="settings-backup-btn"><span class="material-symbols-rounded" aria-hidden="true">data_object</span>JSONバックアップを保存</button>
+              <button class="btn" type="button" id="settings-restore-btn"><span class="material-symbols-rounded" aria-hidden="true">restore</span>JSONから復元</button>
+            </div>
+          </section>
+          <section class="settings-section danger-zone">
+            <h3>すべてのデータを削除</h3>
+            <p>イベント、参加者、設定をこのブラウザから削除します。事前にJSONバックアップを保存してください。</p>
+            <button class="btn btn-danger" type="button" id="reset-data-btn"><span class="material-symbols-rounded" aria-hidden="true">delete_forever</span>データを初期化</button>
+          </section>`,
+        footer: '<div></div><button class="btn btn-primary" type="button" id="save-settings-btn"><span class="material-symbols-rounded" aria-hidden="true">save</span>設定を保存</button>',
+        onReady(backdrop) {
+          $("#week-start", backdrop).value = String(data.settings.weekStartsOn || 0);
+          $("#default-event-color", backdrop).value = data.settings.defaultEventColor || EVENT_COLORS[0];
+          $("#default-event-text-color", backdrop).value = data.settings.defaultEventTextColor || "#FFFFFF";
+          $("#storage-summary", backdrop).textContent = `イベント ${data.events.length}件 ／ 参加者 ${data.participants.length}名 ／ 最終更新 ${new Date(data.updatedAt).toLocaleString("ja-JP")}`;
+          $("#settings-backup-btn", backdrop).addEventListener("click", exportJson);
+          $("#settings-restore-btn", backdrop).addEventListener("click", () => $("#restore-file").click());
+          $("#save-settings-btn", backdrop).addEventListener("click", () => {
+            data.settings.weekStartsOn = Number($("#week-start", backdrop).value) === 1 ? 1 : 0;
+            data.settings.defaultEventColor = $("#default-event-color", backdrop).value;
+            data.settings.defaultEventTextColor = $("#default-event-text-color", backdrop).value;
+            modalDirty = false;
+            closeModal(true);
+            saveData();
+            render();
+            toast("設定を保存しました。");
+          });
+          $("#reset-data-btn", backdrop).addEventListener("click", () => {
+            if (!window.confirm("すべてのイベント・参加者・設定を削除しますか？この操作は取り消せません。")) return;
+            if (!window.confirm("最終確認です。本当にすべてのデータを初期化しますか？")) return;
+            data = createDefaultData();
+            viewYear = now.getFullYear();
+            viewMonth = now.getMonth();
+            modalDirty = false;
+            saveData();
+            closeModal(true);
+            render();
+            toast("すべてのデータを初期化しました。");
+          });
+        }
+      });
+    }
+
+    function changeMonth(delta) {
+      const target = new Date(viewYear, viewMonth + delta, 1);
+      viewYear = target.getFullYear();
+      viewMonth = target.getMonth();
+      saveData();
+      render();
+    }
+
+    $("#prev-btn").addEventListener("click", () => changeMonth(-1));
+    $("#next-btn").addEventListener("click", () => changeMonth(1));
+    $("#today-btn").addEventListener("click", () => {
+      const today = new Date();
+      viewYear = today.getFullYear();
+      viewMonth = today.getMonth();
+      saveData();
+      render();
+    });
+    $("#add-event-btn").addEventListener("click", () => openEventForm());
+    $("#participants-btn").addEventListener("click", openParticipantsModal);
+    $("#export-btn").addEventListener("click", openExportModal);
+    $("#settings-btn").addEventListener("click", openSettings);
+    $("#list-btn").addEventListener("click", openEventList);
+    $("#clear-filter-btn").addEventListener("click", () => {
+      data.settings.selectedParticipantIds = [];
+      saveData();
+      renderFilters();
+      renderCalendar();
+      toast("絞り込みを解除しました。");
+    });
+    $("#restore-file").addEventListener("change", event => restoreJson(event.target.files && event.target.files[0]));
+    document.addEventListener("keydown", event => {
+      if (event.key === "Escape" && $(".modal-backdrop")) closeModal();
+    });
+
+    render();
+  })();
+  </script>
+</body>
+</html>
