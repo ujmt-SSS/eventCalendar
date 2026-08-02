@@ -274,6 +274,8 @@
     .filter-actions { display: flex; gap: 7px; margin-top: 12px; }
 
     .calendar-panel {
+      display: flex;
+      flex-direction: column;
       min-width: 0;
       overflow: hidden;
       border: 1px solid var(--line);
@@ -300,9 +302,10 @@
     .weekday:last-child { color: #32629b; }
 
     .calendar-grid {
+      flex: 1;
       display: grid;
       grid-template-columns: repeat(7, minmax(0,1fr));
-      grid-template-rows: repeat(6, minmax(154px, auto));
+      grid-template-rows: repeat(6, minmax(154px, 1fr));
     }
 
     .day-cell {
@@ -377,6 +380,14 @@
       font-weight: 760;
       line-height: 22px;
     }
+    .event-type-mark {
+      flex: 0 0 auto;
+      padding-right: 5px;
+      border-right: 1px solid currentColor;
+      font-size: 9px;
+      line-height: 1;
+      opacity: .82;
+    }
     .card-title + .card-row { margin-top: 3px; }
     .event-card .card-row:not(.card-title) { padding-inline: 6px; }
     .row-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -399,14 +410,22 @@
       white-space: nowrap;
     }
     .more-events {
+      position: absolute;
+      right: 7px;
+      bottom: 7px;
+      z-index: 1;
       flex: 0 0 auto;
+      padding: 0 2px;
       border: 0;
+      border-radius: 3px;
       color: var(--teal);
-      background: transparent;
+      background: rgba(255,255,255,.92);
       cursor: pointer;
       font-size: 11px;
       font-weight: 800;
+      line-height: 14px;
     }
+    .day-cell.has-multiple-events .event-card .card-row:last-child { padding-right: 62px; }
     .empty-hint {
       position: absolute;
       left: 9px;
@@ -597,6 +616,21 @@
     .export-action { min-height: 40px; margin-top: auto; }
     .option-row { display: flex; align-items: center; gap: 14px; margin: 8px 0; color: var(--muted); font-size: 12px; }
     .option-row label { display: flex; align-items: center; gap: 5px; }
+    .export-type-filter {
+      margin: 0 0 16px;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      background: #fff;
+    }
+    .export-type-filter legend { padding: 0 5px; font-size: 12px; font-weight: 800; }
+    .export-type-filter .option-row { margin: 2px 0 4px; }
+    .export-warning { margin-top: 7px; color: #8a4f2f; font-weight: 750; }
+    .event-default-color-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
 
     .data-table { width: 100%; border-collapse: collapse; }
     .data-table th, .data-table td { padding: 10px 9px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
@@ -706,7 +740,7 @@
       .event-card { height: 22mm; margin-top: 1mm; padding: 0; box-shadow: none; }
       .card-row { height: 3.7mm; font-size: 7pt; line-height: 3.7mm; }
       .card-title { font-size: 7.5pt; }
-      .more-events { top: 1.5mm; right: 1.5mm; }
+      .more-events { right: 1.5mm; bottom: 1.5mm; }
     }
   </style>
 </head>
@@ -776,8 +810,18 @@
     const STORAGE_KEY = "doujin-event-calendar-v1";
     const SCHEMA_VERSION = 1;
     const EVENT_COLORS = ["#C5523F", "#D37A35", "#D6A62E", "#3C856D", "#39779B", "#675FA4", "#A85678", "#59645F"];
+    const EVENT_TYPE_DEFAULT_COLORS = {
+      confirmed: "#0B8043",
+      planned: "#3F51B5",
+      deadline: "#D50000"
+    };
     const PARTICIPANT_COLORS = ["#E05A47", "#EE9A3A", "#D4B52C", "#3F9B72", "#3B83B9", "#776AC6", "#C55C8A", "#64736D"];
     const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
+    const EVENT_TYPES = [
+      { value: "confirmed", label: "参加確定", shortLabel: "確定" },
+      { value: "planned", label: "参加予定", shortLabel: "予定" },
+      { value: "deadline", label: "〆切", shortLabel: "〆切" }
+    ];
 
     const $ = (selector, root = document) => root.querySelector(selector);
     const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
@@ -787,6 +831,7 @@
     let viewYear = Number.isInteger(data.settings.lastDisplayedYear) ? data.settings.lastDisplayedYear : now.getFullYear();
     let viewMonth = Number.isInteger(data.settings.lastDisplayedMonth) ? data.settings.lastDisplayedMonth : now.getMonth();
     let modalDirty = false;
+    let printEventTypes = null;
 
     function createDefaultData() {
       const current = new Date();
@@ -803,8 +848,13 @@
           circleName: "",
           circleLogo: "",
           showCircleLogo: true,
-          defaultEventColor: EVENT_COLORS[0],
-          defaultEventTextColor: "#FFFFFF"
+          defaultEventColor: EVENT_TYPE_DEFAULT_COLORS.confirmed,
+          defaultPlannedEventColor: EVENT_TYPE_DEFAULT_COLORS.planned,
+          defaultDeadlineEventColor: EVENT_TYPE_DEFAULT_COLORS.deadline,
+          defaultEventTextColor: "#FFFFFF",
+          defaultPlannedEventTextColor: "#FFFFFF",
+          defaultDeadlineEventTextColor: "#FFFFFF",
+          exportEventTypes: EVENT_TYPES.map(type => type.value)
         },
         updatedAt: new Date().toISOString()
       };
@@ -832,6 +882,9 @@
         schemaVersion: SCHEMA_VERSION,
         events: Array.isArray(value.events) ? value.events.map(event => ({
           ...event,
+          eventType: normalizeEventType(event.eventType),
+          isPriority: event.isPriority === true,
+          showTypeLabel: event.showTypeLabel !== false,
           endDate: event.endDate || event.startDate,
           textColor: typeof event.textColor === "string" ? event.textColor : "#FFFFFF"
         })) : value.events,
@@ -843,7 +896,14 @@
           circleLogo: typeof value.settings?.circleLogo === "string" ? value.settings.circleLogo : "",
           showCircleLogo: typeof value.settings?.showCircleLogo === "boolean" ? value.settings.showCircleLogo : true,
           defaultEventColor: /^#[0-9a-f]{6}$/i.test(value.settings?.defaultEventColor || "") ? value.settings.defaultEventColor : defaults.settings.defaultEventColor,
-          defaultEventTextColor: /^#[0-9a-f]{6}$/i.test(value.settings?.defaultEventTextColor || "") ? value.settings.defaultEventTextColor : defaults.settings.defaultEventTextColor
+          defaultPlannedEventColor: /^#[0-9a-f]{6}$/i.test(value.settings?.defaultPlannedEventColor || "") ? value.settings.defaultPlannedEventColor : defaults.settings.defaultPlannedEventColor,
+          defaultDeadlineEventColor: /^#[0-9a-f]{6}$/i.test(value.settings?.defaultDeadlineEventColor || "") ? value.settings.defaultDeadlineEventColor : defaults.settings.defaultDeadlineEventColor,
+          defaultEventTextColor: /^#[0-9a-f]{6}$/i.test(value.settings?.defaultEventTextColor || "") ? value.settings.defaultEventTextColor : defaults.settings.defaultEventTextColor,
+          defaultPlannedEventTextColor: /^#[0-9a-f]{6}$/i.test(value.settings?.defaultPlannedEventTextColor || "") ? value.settings.defaultPlannedEventTextColor : defaults.settings.defaultPlannedEventTextColor,
+          defaultDeadlineEventTextColor: /^#[0-9a-f]{6}$/i.test(value.settings?.defaultDeadlineEventTextColor || "") ? value.settings.defaultDeadlineEventTextColor : defaults.settings.defaultDeadlineEventTextColor,
+          exportEventTypes: Array.isArray(value.settings?.exportEventTypes)
+            ? [...new Set(value.settings.exportEventTypes.filter(type => EVENT_TYPES.some(candidate => candidate.value === type)))]
+            : defaults.settings.exportEventTypes
         },
         updatedAt: typeof value.updatedAt === "string" ? value.updatedAt : new Date().toISOString()
       };
@@ -856,6 +916,9 @@
         event && typeof event.id === "string" && typeof event.title === "string" &&
         isISODate(event.startDate) && isISODate(event.endDate || event.startDate) &&
         event.startDate <= (event.endDate || event.startDate) &&
+        EVENT_TYPES.some(type => type.value === event.eventType) &&
+        typeof event.isPriority === "boolean" &&
+        typeof event.showTypeLabel === "boolean" &&
         typeof event.color === "string" && typeof event.textColor === "string" &&
         Array.isArray(event.participantIds) && event.participantIds.length <= 4 &&
         new Set(event.participantIds).size === event.participantIds.length &&
@@ -878,7 +941,14 @@
         (!value.settings.circleLogo || /^data:image\/(?:png|jpeg|webp);base64,/i.test(value.settings.circleLogo)) &&
         typeof value.settings.showCircleLogo === "boolean" &&
         /^#[0-9a-f]{6}$/i.test(value.settings.defaultEventColor) &&
-        /^#[0-9a-f]{6}$/i.test(value.settings.defaultEventTextColor);
+        /^#[0-9a-f]{6}$/i.test(value.settings.defaultPlannedEventColor) &&
+        /^#[0-9a-f]{6}$/i.test(value.settings.defaultDeadlineEventColor) &&
+        /^#[0-9a-f]{6}$/i.test(value.settings.defaultEventTextColor) &&
+        /^#[0-9a-f]{6}$/i.test(value.settings.defaultPlannedEventTextColor) &&
+        /^#[0-9a-f]{6}$/i.test(value.settings.defaultDeadlineEventTextColor) &&
+        Array.isArray(value.settings.exportEventTypes) &&
+        value.settings.exportEventTypes.every(type => EVENT_TYPES.some(candidate => candidate.value === type)) &&
+        new Set(value.settings.exportEventTypes).size === value.settings.exportEventTypes.length;
       return eventsValid && participantsValid && settingsValid;
     }
 
@@ -928,21 +998,39 @@
     }
     function todayISO() { return dateToISO(new Date()); }
     function participantById(id) { return data.participants.find(item => item.id === id); }
+    function normalizeEventType(value) { return EVENT_TYPES.some(type => type.value === value) ? value : "confirmed"; }
+    function eventTypeLabel(value, short = false) {
+      const type = EVENT_TYPES.find(candidate => candidate.value === normalizeEventType(value));
+      return short ? type.shortLabel : type.label;
+    }
+    function defaultColorForEventType(value) {
+      if (value === "planned") return data.settings.defaultPlannedEventColor || EVENT_TYPE_DEFAULT_COLORS.planned;
+      if (value === "deadline") return data.settings.defaultDeadlineEventColor || EVENT_TYPE_DEFAULT_COLORS.deadline;
+      return data.settings.defaultEventColor || EVENT_TYPE_DEFAULT_COLORS.confirmed;
+    }
+    function defaultTextColorForEventType(value) {
+      if (value === "planned") return data.settings.defaultPlannedEventTextColor || "#FFFFFF";
+      if (value === "deadline") return data.settings.defaultDeadlineEventTextColor || "#FFFFFF";
+      return data.settings.defaultEventTextColor || "#FFFFFF";
+    }
     function eventEnd(event) { return event.endDate || event.startDate; }
     function eventCoversDate(event, iso) { return event.startDate <= iso && eventEnd(event) >= iso; }
     function activeParticipants() { return [...data.participants].filter(item => item.isActive).sort((a,b) => a.sortOrder - b.sortOrder); }
     function allParticipantsSorted() { return [...data.participants].sort((a,b) => a.sortOrder - b.sortOrder); }
 
-    function filteredEvents() {
+    function filteredEvents(eventTypes = printEventTypes) {
+      const allowedTypes = Array.isArray(eventTypes) ? new Set(eventTypes.map(normalizeEventType)) : null;
       const selected = data.settings.selectedParticipantIds.filter(id => data.participants.some(item => item.id === id));
-      if (!selected.length) return data.events;
-      return data.events.filter(event => event.participantIds.some(id => selected.includes(id)));
+      return data.events.filter(event =>
+        (!allowedTypes || allowedTypes.has(normalizeEventType(event.eventType))) &&
+        (!selected.length || event.participantIds.some(id => selected.includes(id)))
+      );
     }
 
-    function eventsForDate(iso) {
-      return filteredEvents()
+    function eventsForDate(iso, eventTypes = printEventTypes) {
+      return filteredEvents(eventTypes)
         .filter(event => eventCoversDate(event, iso))
-        .sort((a,b) => a.startDate.localeCompare(b.startDate) || a.title.localeCompare(b.title, "ja"));
+        .sort((a,b) => Number(Boolean(b.isPriority)) - Number(Boolean(a.isPriority)) || a.startDate.localeCompare(b.startDate) || a.title.localeCompare(b.title, "ja"));
     }
 
     function monthEvents() {
@@ -1059,6 +1147,7 @@
         const dayEvents = eventsForDate(iso);
         const cell = document.createElement("section");
         cell.className = "day-cell";
+        if (dayEvents.length > 1) cell.classList.add("has-multiple-events");
         if (date.getMonth() !== viewMonth) cell.classList.add("outside");
         if (iso === currentToday) cell.classList.add("today");
         cell.dataset.date = iso;
@@ -1093,7 +1182,7 @@
               event.stopPropagation();
               openDayEvents(iso);
             });
-            dayMeta.appendChild(more);
+            cell.appendChild(more);
           }
           if (dayMeta.childElementCount) cell.appendChild(dayMeta);
         } else {
@@ -1128,6 +1217,12 @@
       titleText.className = "row-text";
       titleText.textContent = eventItem.title;
       titleText.title = eventItem.title;
+      if (eventItem.showTypeLabel !== false) {
+        const typeMark = document.createElement("span");
+        typeMark.className = "event-type-mark";
+        typeMark.textContent = eventTypeLabel(eventItem.eventType, true);
+        titleRow.appendChild(typeMark);
+      }
       titleRow.appendChild(titleText);
       button.appendChild(titleRow);
 
@@ -1206,14 +1301,17 @@
       if (eventId && !source) return;
       const item = source ? structuredClone(source) : {
         id: "",
+        eventType: "confirmed",
+        isPriority: false,
+        showTypeLabel: true,
         title: "",
         startDate: defaultDate,
         endDate: defaultDate,
         venue: "",
         boothNumber: "",
         url: "",
-        color: data.settings.defaultEventColor || EVENT_COLORS[0],
-        textColor: data.settings.defaultEventTextColor || "#FFFFFF",
+        color: defaultColorForEventType("confirmed"),
+        textColor: defaultTextColorForEventType("confirmed"),
         participantIds: [],
         memo: ""
       };
@@ -1229,14 +1327,33 @@
               <label class="required" for="event-title">イベント名</label>
               <input id="event-title" name="title" maxlength="100" autocomplete="off" required>
             </div>
-            <div class="field field-full">
-              <label class="required" for="event-start">開催日</label>
+            <div class="field">
+              <label class="required" for="event-type">種別</label>
+              <select id="event-type" name="eventType" required>
+                ${EVENT_TYPES.map(type => `<option value="${type.value}">${type.label}</option>`).join("")}
+              </select>
+            </div>
+            <div class="field">
+              <label class="required" for="event-start">開催日・〆切日</label>
               <input id="event-start" name="startDate" type="date" required>
+            </div>
+            <div class="field field-full">
+              <label class="checkbox-row">
+                <input id="event-priority" name="isPriority" type="checkbox">
+                同日に複数ある場合、このイベントを優先表示
+              </label>
+              <p class="field-help">優先表示は同じ日付につき1件です。設定すると、ほかのイベントより先にカレンダーへ表示されます。</p>
+            </div>
+            <div class="field field-full">
+              <label class="checkbox-row">
+                <input id="event-show-type-label" name="showTypeLabel" type="checkbox">
+                カレンダーに「確定」「予定」「〆切」の種別ラベルを表示
+              </label>
             </div>
             <div class="field field-full">
               <span class="field-label">参加者（最大4名）</span>
               <div class="participant-slots" id="participant-slots"></div>
-              <p class="field-help">同じ参加者は重複して選択できません。上下ボタンで表示順を変更できます。</p>
+              <p class="field-help">選択済みの参加者は、ほかの枠の候補には表示されません。上下ボタンで表示順を変更できます。</p>
             </div>
             <div class="field-full color-field-pair">
               <div class="field">
@@ -1277,14 +1394,32 @@
           </div>`,
         onReady(backdrop) {
           $("#event-title", backdrop).value = item.title;
+          $("#event-type", backdrop).value = normalizeEventType(item.eventType);
           $("#event-start", backdrop).value = item.startDate;
-          $("#event-color", backdrop).value = item.color || EVENT_COLORS[0];
-          $("#event-text-color", backdrop).value = item.textColor || "#FFFFFF";
+          $("#event-priority", backdrop).checked = Boolean(item.isPriority);
+          $("#event-show-type-label", backdrop).checked = item.showTypeLabel !== false;
+          $("#event-color", backdrop).value = item.color || defaultColorForEventType(item.eventType);
+          $("#event-text-color", backdrop).value = item.textColor || defaultTextColorForEventType(item.eventType);
           $("#event-venue", backdrop).value = item.venue || "";
           $("#event-booth", backdrop).value = item.boothNumber || "";
           $("#event-url", backdrop).value = item.url || "";
           $("#event-memo", backdrop).value = item.memo || "";
           renderParticipantSlots(backdrop, optionParticipants, item.participantIds);
+
+          let currentEventType = normalizeEventType(item.eventType);
+          $("#event-type", backdrop).addEventListener("change", event => {
+            const colorInput = $("#event-color", backdrop);
+            const textColorInput = $("#event-text-color", backdrop);
+            const previousDefault = defaultColorForEventType(currentEventType);
+            const previousTextDefault = defaultTextColorForEventType(currentEventType);
+            currentEventType = normalizeEventType(event.target.value);
+            if (!source || colorInput.value.toLowerCase() === previousDefault.toLowerCase()) {
+              colorInput.value = defaultColorForEventType(currentEventType);
+            }
+            if (!source || textColorInput.value.toLowerCase() === previousTextDefault.toLowerCase()) {
+              textColorInput.value = defaultTextColorForEventType(currentEventType);
+            }
+          });
 
           $("#event-form", backdrop).addEventListener("submit", event => {
             event.preventDefault();
@@ -1302,6 +1437,9 @@
             const timestamp = new Date().toISOString();
             const savedItem = {
               id: source ? source.id : makeId("event"),
+              eventType: normalizeEventType(values.get("eventType")),
+              isPriority: values.get("isPriority") === "on",
+              showTypeLabel: values.get("showTypeLabel") === "on",
               title: String(values.get("title")).trim(),
               startDate: String(values.get("startDate")),
               endDate: String(values.get("startDate")),
@@ -1315,6 +1453,13 @@
               createdAt: source ? source.createdAt : timestamp,
               updatedAt: timestamp
             };
+            if (savedItem.isPriority) {
+              data.events = data.events.map(existing =>
+                existing.id !== savedItem.id && existing.startDate === savedItem.startDate
+                  ? { ...existing, isPriority: false, updatedAt: timestamp }
+                  : existing
+              );
+            }
             if (source) {
               data.events = data.events.map(existing => existing.id === source.id ? savedItem : existing);
             } else {
@@ -1343,6 +1488,7 @@
             const copy = {
               ...structuredClone(source),
               id: makeId("event"),
+              isPriority: false,
               title: `${source.title}（コピー）`,
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString()
@@ -1379,11 +1525,14 @@
           const option = document.createElement("option");
           option.value = participant.id;
           option.textContent = participant.isActive ? participant.name : `${participant.name}（無効）`;
-          if (!participant.isActive) option.disabled = participant.id !== selectedIds[index];
+          option.dataset.inactive = String(!participant.isActive);
           select.appendChild(option);
         });
         select.value = selectedIds[index] || "";
-        select.addEventListener("change", () => { modalDirty = true; });
+        select.addEventListener("change", () => {
+          syncParticipantSlotOptions(backdrop);
+          modalDirty = true;
+        });
         const up = document.createElement("button");
         up.type = "button";
         up.className = "btn btn-small reorder-button";
@@ -1394,6 +1543,7 @@
         up.addEventListener("click", () => {
           const selects = $$(".participant-select", backdrop);
           [selects[index - 1].value, selects[index].value] = [selects[index].value, selects[index - 1].value];
+          syncParticipantSlotOptions(backdrop);
           modalDirty = true;
         });
         const down = document.createElement("button");
@@ -1406,23 +1556,55 @@
         down.addEventListener("click", () => {
           const selects = $$(".participant-select", backdrop);
           [selects[index + 1].value, selects[index].value] = [selects[index].value, selects[index + 1].value];
+          syncParticipantSlotOptions(backdrop);
           modalDirty = true;
         });
         row.append(number, select, up, down);
         slots.appendChild(row);
       }
+      syncParticipantSlotOptions(backdrop);
+    }
+
+    function syncParticipantSlotOptions(backdrop) {
+      const selects = $$(".participant-select", backdrop);
+      selects.forEach(select => {
+        const selectedElsewhere = new Set(selects.filter(other => other !== select).map(other => other.value).filter(Boolean));
+        Array.from(select.options).forEach(option => {
+          if (!option.value) return;
+          const unavailable = selectedElsewhere.has(option.value);
+          const inactive = option.dataset.inactive === "true" && option.value !== select.value;
+          option.hidden = unavailable;
+          option.disabled = unavailable || inactive;
+        });
+      });
     }
 
     function validateEventForm(values, participantIds) {
+      const eventType = String(values.get("eventType"));
       const title = String(values.get("title")).trim();
       const start = String(values.get("startDate"));
       const url = String(values.get("url")).trim();
+      if (!EVENT_TYPES.some(type => type.value === eventType)) return "種別を選択してください。";
       if (!title) return "イベント名を入力してください。";
-      if (!isISODate(start)) return "開催日を入力してください。";
+      if (!isISODate(start)) return "開催日・〆切日を入力してください。";
       if (participantIds.length > 4) return "参加者は最大4名までです。";
       if (new Set(participantIds).size !== participantIds.length) return "同じ参加者が複数選択されています。各参加者は1枠だけ選択してください。";
       if (url && !/^https?:\/\//i.test(url)) return "URLは http:// または https:// で始まる形式で入力してください。";
       return "";
+    }
+
+    function prioritizeEvent(eventId, iso) {
+      const target = data.events.find(item => item.id === eventId);
+      if (!target) return;
+      const timestamp = new Date().toISOString();
+      data.events = data.events.map(item => {
+        if (item.startDate !== target.startDate) return item;
+        const isPriority = item.id === target.id;
+        return item.isPriority === isPriority ? item : { ...item, isPriority, updatedAt: timestamp };
+      });
+      saveData();
+      render();
+      openDayEvents(iso);
     }
 
     function openDayEvents(iso) {
@@ -1449,14 +1631,23 @@
             const participantNames = item.participantIds.map(id => participantById(id)?.name).filter(Boolean);
             const meta = document.createElement("span");
             meta.className = "event-meta";
-            meta.textContent = [item.venue, participantNames.join("・")].filter(Boolean).join(" ／ ") || "詳細情報なし";
+            meta.textContent = [eventTypeLabel(item.eventType), item.venue, participantNames.join("・")].filter(Boolean).join(" ／ ");
             summary.append(title, meta);
             const edit = document.createElement("button");
             edit.type = "button";
             edit.className = "btn btn-small";
             edit.textContent = "編集";
             edit.addEventListener("click", () => openEventForm(item.id));
-            row.append(stripe, summary, edit);
+            const priority = document.createElement("button");
+            priority.type = "button";
+            priority.className = "btn btn-small";
+            priority.textContent = item.isPriority ? "優先中" : "優先表示";
+            priority.disabled = Boolean(item.isPriority);
+            priority.addEventListener("click", () => prioritizeEvent(item.id, iso));
+            const actions = document.createElement("div");
+            actions.className = "row-actions";
+            actions.append(priority, edit);
+            row.append(stripe, summary, actions);
             list.appendChild(row);
           });
           $("#day-add-btn", backdrop).addEventListener("click", () => openEventForm(null, iso));
@@ -1829,7 +2020,7 @@
     }
 
     function openEventList() {
-      const events = [...filteredEvents()].sort((a,b) => a.startDate.localeCompare(b.startDate) || a.title.localeCompare(b.title, "ja"));
+      const events = [...filteredEvents()].sort((a,b) => a.startDate.localeCompare(b.startDate) || Number(Boolean(b.isPriority)) - Number(Boolean(a.isPriority)) || a.title.localeCompare(b.title, "ja"));
       openModal({
         title: "イベント一覧",
         subtitle: `${events.length}件${data.settings.selectedParticipantIds.length ? "（絞り込み適用中）" : ""}`,
@@ -1837,7 +2028,7 @@
         body: events.length ? `
           <div style="overflow:auto">
             <table class="data-table">
-              <thead><tr><th>開催日</th><th>イベント名</th><th>会場・スペース</th><th>参加者</th><th></th></tr></thead>
+              <thead><tr><th>日付</th><th>種別</th><th>イベント名</th><th>会場・スペース</th><th>参加者</th><th></th></tr></thead>
               <tbody id="event-table-body"></tbody>
             </table>
           </div>` : '<div class="empty-state"><strong>表示できるイベントがありません</strong>イベントを登録するか、絞り込み条件を解除してください。</div>',
@@ -1850,6 +2041,8 @@
             const row = document.createElement("tr");
             const dateCell = document.createElement("td");
             dateCell.textContent = item.startDate === eventEnd(item) ? formatDateShort(item.startDate) : `${formatDateShort(item.startDate)}〜${formatDateShort(eventEnd(item))}`;
+            const typeCell = document.createElement("td");
+            typeCell.textContent = eventTypeLabel(item.eventType);
             const titleCell = document.createElement("td");
             const title = document.createElement("div");
             title.className = "table-title";
@@ -1863,12 +2056,23 @@
             const actionCell = document.createElement("td");
             const edit = actionButton("編集", "イベントを編集", () => openEventForm(item.id));
             actionCell.appendChild(edit);
-            row.append(dateCell, titleCell, venueCell, participantsCell, actionCell);
+            row.append(dateCell, typeCell, titleCell, venueCell, participantsCell, actionCell);
             tbody.appendChild(row);
           });
           $("#list-add-btn", backdrop).addEventListener("click", () => openEventForm());
         }
       });
+    }
+
+    function selectedExportEventTypes(backdrop) {
+      return $$("input[name='export-event-type']:checked", backdrop).map(input => input.value);
+    }
+
+    function requiredExportEventTypes(backdrop) {
+      const selected = selectedExportEventTypes(backdrop);
+      if (selected.length) return selected;
+      toast("出力する種別を1つ以上選択してください。", "error");
+      return null;
     }
 
     function openExportModal() {
@@ -1882,6 +2086,15 @@
             <label for="export-month">カレンダー出力対象</label>
             <input id="export-month" type="month">
           </div>
+          <fieldset class="export-type-filter">
+            <legend>PNG・PDF・CSVに含める種別</legend>
+            <div class="option-row">
+              ${EVENT_TYPES.map(type => `<label><input type="checkbox" name="export-event-type" value="${type.value}"${data.settings.exportEventTypes.includes(type.value) ? " checked" : ""}> ${type.label}</label>`).join("")}
+            </div>
+            <p class="field-help export-warning">同日に複数のイベントがある場合、PNG・PDFには「優先表示」に設定した1件のみが出力されます。優先表示が未設定の場合は、イベント名順の先頭1件です。</p>
+            <p class="field-help">CSVにはチェックした種別の全イベントを出力します。</p>
+            <p class="field-help">JSONバックアップには、チェック状態にかかわらずすべてのイベントを保存します。</p>
+          </fieldset>
           <div class="export-grid">
             <section class="export-card">
               <div class="export-icon">PNG</div>
@@ -1910,7 +2123,7 @@
               <div class="export-icon">CSV</div>
               <div>
                 <h3>イベント一覧</h3>
-                <p>全イベントをExcelでも開きやすいUTF-8 BOM付きCSVにします。</p>
+                <p>選択した種別のイベントを、種別列付きのUTF-8 BOM形式にします。</p>
                 <button class="btn btn-soft" type="button" id="csv-export-btn"><span class="material-symbols-rounded" aria-hidden="true">table_view</span>CSVを保存</button>
               </div>
             </section>
@@ -1925,15 +2138,27 @@
           </div>`,
         onReady(backdrop) {
           $("#export-month", backdrop).value = `${viewYear}-${pad(viewMonth + 1)}`;
+          $$("input[name='export-event-type']", backdrop).forEach(input => input.addEventListener("change", () => {
+            data.settings.exportEventTypes = selectedExportEventTypes(backdrop);
+            saveData();
+          }));
           $("#json-export-btn", backdrop).addEventListener("click", exportJson);
-          $("#csv-export-btn", backdrop).addEventListener("click", exportCsv);
+          $("#csv-export-btn", backdrop).addEventListener("click", () => {
+            const eventTypes = requiredExportEventTypes(backdrop);
+            if (eventTypes) exportCsv(eventTypes);
+          });
           $("#png-export-btn", backdrop).addEventListener("click", () => {
+            const eventTypes = requiredExportEventTypes(backdrop);
+            if (!eventTypes) return;
             const scale = Number($('input[name="png-scale"]:checked', backdrop).value);
             const [targetYear, targetMonthNumber] = $("#export-month", backdrop).value.split("-").map(Number);
-            exportPng(scale, $("#png-title", backdrop).checked, targetYear, targetMonthNumber - 1);
+            exportPng(scale, $("#png-title", backdrop).checked, targetYear, targetMonthNumber - 1, eventTypes);
           });
           $("#print-btn", backdrop).addEventListener("click", () => {
+            const eventTypes = requiredExportEventTypes(backdrop);
+            if (!eventTypes) return;
             const [targetYear, targetMonthNumber] = $("#export-month", backdrop).value.split("-").map(Number);
+            printEventTypes = eventTypes;
             if (Number.isInteger(targetYear) && Number.isInteger(targetMonthNumber)) {
               viewYear = targetYear;
               viewMonth = targetMonthNumber - 1;
@@ -2016,13 +2241,15 @@
       return `"${text.replace(/"/g, '""')}"`;
     }
 
-    function exportCsv() {
+    function exportCsv(eventTypes = EVENT_TYPES.map(type => type.value)) {
       try {
-        const header = ["EventName","StartDate","EndDate","Venue","BoothNumber","Participant1","Participant2","Participant3","Participant4","URL","Memo"];
-        const rows = [...data.events].sort((a,b) => a.startDate.localeCompare(b.startDate)).map(item => {
+        const allowedTypes = new Set(eventTypes.map(normalizeEventType));
+        const header = ["EventType","EventName","StartDate","EndDate","Venue","BoothNumber","Participant1","Participant2","Participant3","Participant4","URL","Memo"];
+        const rows = data.events.filter(item => allowedTypes.has(normalizeEventType(item.eventType)))
+          .sort((a,b) => a.startDate.localeCompare(b.startDate)).map(item => {
           const participants = item.participantIds.map(id => participantById(id)?.name || "");
           while (participants.length < 4) participants.push("");
-          return [item.title,item.startDate,eventEnd(item),item.venue,item.boothNumber,...participants.slice(0,4),item.url,item.memo].map(csvCell).join(",");
+          return [eventTypeLabel(item.eventType),item.title,item.startDate,eventEnd(item),item.venue,item.boothNumber,...participants.slice(0,4),item.url,item.memo].map(csvCell).join(",");
         });
         downloadBlob(new Blob(["\uFEFF", [header.join(","), ...rows].join("\r\n")], { type: "text/csv;charset=utf-8" }), `doujin-event-calendar-${timestampForFile()}.csv`);
       } catch (error) {
@@ -2038,7 +2265,7 @@
       return `${clipped}…`;
     }
 
-    function exportPng(scale, includeTitle, targetYear = viewYear, targetMonth = viewMonth) {
+    function exportPng(scale, includeTitle, targetYear = viewYear, targetMonth = viewMonth, eventTypes = EVENT_TYPES.map(type => type.value)) {
       try {
         const baseWidth = 1680;
         const titleHeight = includeTitle ? 82 : 24;
@@ -2085,7 +2312,7 @@
           const y = top + weekdayHeight + row * cellHeight;
           const date = new Date(gridStart.getFullYear(), gridStart.getMonth(), gridStart.getDate() + index);
           const iso = dateToISO(date);
-          const items = eventsForDate(iso);
+          const items = eventsForDate(iso, eventTypes);
           context.fillStyle = date.getMonth() === targetMonth ? "#ffffff" : "#f4f6fa";
           context.fillRect(x, y, cellWidth, cellHeight);
           context.strokeStyle = "#e1e6ef";
@@ -2104,7 +2331,8 @@
           context.fillRect(cardX, cardY, cardWidth, 24);
           context.font = '700 13px "Noto Sans JP", sans-serif';
           context.fillStyle = item.textColor || "#FFFFFF";
-          context.fillText(fitCanvasText(context, item.title, cardWidth - 18), cardX + 8, cardY + 12);
+          const typePrefix = item.showTypeLabel !== false ? `[${eventTypeLabel(item.eventType, true)}] ` : "";
+          context.fillText(fitCanvasText(context, `${typePrefix}${item.title}`, cardWidth - 18), cardX + 8, cardY + 12);
           for (let slot = 0; slot < 4; slot += 1) {
             const participant = participantById(item.participantIds[slot]);
             const rowY = cardY + 38 + slot * 19;
@@ -2158,15 +2386,31 @@
           </section>
           <section class="settings-section">
             <h3>イベントの既定色</h3>
-            <p>新しいイベントを登録するときの初期値です。登録画面で個別に変更できます。</p>
-            <div class="color-field-pair">
+            <p>種別ごとの新規登録時の色です。登録画面で個別に変更できます。</p>
+            <div class="event-default-color-grid">
               <div class="field">
-                <label for="default-event-color">イベント色</label>
+                <label for="default-event-color">参加確定・背景色</label>
                 <input id="default-event-color" type="color">
               </div>
               <div class="field">
-                <label for="default-event-text-color">イベント文字色</label>
+                <label for="default-event-text-color">参加確定・文字色</label>
                 <input id="default-event-text-color" type="color">
+              </div>
+              <div class="field">
+                <label for="default-planned-event-color">参加予定・背景色</label>
+                <input id="default-planned-event-color" type="color">
+              </div>
+              <div class="field">
+                <label for="default-planned-event-text-color">参加予定・文字色</label>
+                <input id="default-planned-event-text-color" type="color">
+              </div>
+              <div class="field">
+                <label for="default-deadline-event-color">〆切・背景色</label>
+                <input id="default-deadline-event-color" type="color">
+              </div>
+              <div class="field">
+                <label for="default-deadline-event-text-color">〆切・文字色</label>
+                <input id="default-deadline-event-text-color" type="color">
               </div>
             </div>
           </section>
@@ -2186,8 +2430,12 @@
         footer: '<div></div><button class="btn btn-primary" type="button" id="save-settings-btn"><span class="material-symbols-rounded" aria-hidden="true">save</span>設定を保存</button>',
         onReady(backdrop) {
           $("#week-start", backdrop).value = String(data.settings.weekStartsOn || 0);
-          $("#default-event-color", backdrop).value = data.settings.defaultEventColor || EVENT_COLORS[0];
+          $("#default-event-color", backdrop).value = data.settings.defaultEventColor || EVENT_TYPE_DEFAULT_COLORS.confirmed;
           $("#default-event-text-color", backdrop).value = data.settings.defaultEventTextColor || "#FFFFFF";
+          $("#default-planned-event-color", backdrop).value = data.settings.defaultPlannedEventColor || EVENT_TYPE_DEFAULT_COLORS.planned;
+          $("#default-planned-event-text-color", backdrop).value = data.settings.defaultPlannedEventTextColor || "#FFFFFF";
+          $("#default-deadline-event-color", backdrop).value = data.settings.defaultDeadlineEventColor || EVENT_TYPE_DEFAULT_COLORS.deadline;
+          $("#default-deadline-event-text-color", backdrop).value = data.settings.defaultDeadlineEventTextColor || "#FFFFFF";
           $("#storage-summary", backdrop).textContent = `イベント ${data.events.length}件 ／ 参加者 ${data.participants.length}名 ／ 最終更新 ${new Date(data.updatedAt).toLocaleString("ja-JP")}`;
           $("#settings-backup-btn", backdrop).addEventListener("click", exportJson);
           $("#settings-restore-btn", backdrop).addEventListener("click", () => $("#restore-file").click());
@@ -2195,6 +2443,10 @@
             data.settings.weekStartsOn = Number($("#week-start", backdrop).value) === 1 ? 1 : 0;
             data.settings.defaultEventColor = $("#default-event-color", backdrop).value;
             data.settings.defaultEventTextColor = $("#default-event-text-color", backdrop).value;
+            data.settings.defaultPlannedEventColor = $("#default-planned-event-color", backdrop).value;
+            data.settings.defaultPlannedEventTextColor = $("#default-planned-event-text-color", backdrop).value;
+            data.settings.defaultDeadlineEventColor = $("#default-deadline-event-color", backdrop).value;
+            data.settings.defaultDeadlineEventTextColor = $("#default-deadline-event-text-color", backdrop).value;
             modalDirty = false;
             closeModal(true);
             saveData();
@@ -2247,6 +2499,11 @@
       toast("絞り込みを解除しました。");
     });
     $("#restore-file").addEventListener("change", event => restoreJson(event.target.files && event.target.files[0]));
+    window.addEventListener("afterprint", () => {
+      if (!printEventTypes) return;
+      printEventTypes = null;
+      render();
+    });
     document.addEventListener("keydown", event => {
       if (event.key === "Escape" && $(".modal-backdrop")) closeModal();
     });
